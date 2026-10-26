@@ -1,3 +1,0 @@
-<div>
-    {!! $groups->links() !!}
-</div>
