@@ -1,39 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/** One version of one message of a followed chat. */
 class ChatLog extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'chat_log_group_id',
-        'message_id',
-        'message_text',
-        'caption',
-        'message_date',
-        'from_user_id',
-        'from_username',
-        'media_type',
-        'media_file_name',
-        'media_mime',
-        'media_size',
-        'media_local_path',
-        'thumb_local_path',
-        'provider_file_id',
+        'chat_log_group_id', 'message_id', 'message_text', 'caption', 'message_date', 'from_user_id',
+        'from_username', 'media_type', 'media_file_name', 'media_mime', 'media_size', 'media_local_path',
+        'thumb_local_path', 'provider_file_id',
     ];
 
-    protected $casts = [
-        'message_date' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return ['message_date' => 'datetime'];
+    }
 
-    /**
-     * Har bir log qaysi groupga tegishli
-     */
-    public function group()
+    public function group(): BelongsTo
     {
         return $this->belongsTo(ChatLogGroup::class, 'chat_log_group_id');
     }
