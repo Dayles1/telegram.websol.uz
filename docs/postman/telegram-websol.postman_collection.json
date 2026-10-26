@@ -1,0 +1,3983 @@
+{
+  "info": {
+    "_postman_id": "a5240a40-b2e3-5688-baff-966a905f43a4",
+    "name": "telegram.websol.uz API",
+    "description": "Telegram'ga foydalanuvchining **o'z akkauntidan** (bot emas) xabar va fayl yuborish API'si.\n\n## Boshlash\n\n1. Import qilingan muhitni (`telegram.websol.uz` environment) tanlang va `base_url`, `email`, `password`, `phone` ni to'ldiring.\n2. **1. Kirish → Login** ni yuboring: token avtomatik `{{token}}` ga yoziladi va boshqa so'rovlarda `Authorization: Bearer` sifatida ishlatiladi.\n3. **2. Telegram akkauntlar → Akkauntlar ro'yxati** — `{{phone_id}}` avtomatik to'ladi (yoki akkauntni `tg/auth` orqali ulang).\n4. **3. Yuborish → Bitta qabul qiluvchiga** — `peer` ni o'zgartirib yuboring, keyin **4. Natija → Yuborish natijasi**.\n\n## Qoidalar\n\n- Har doim `Accept: application/json`. Til: `Accept-Language: uz` (standart) yoki `ru`.\n- Yuborish **asinxron**: `POST /api/tg/send` darhol `group_id` beradi, xabarlar fonda ketadi (akkaunt xabarlar orasida 2–5 soniya pauza qiladi, kunlik limit bor). Natija: `GET /api/groups/{group_id}`.\n- 24 soat ichida yuborilmagan xabar `failed` (`error_key: expired`) bo'ladi.\n- Vaqtlar `Asia/Tashkent`.\n\n## Xatolar\n\n```json\n{ \"status\": \"error\", \"message\": \"Not found.\" }\n{ \"status\": \"validation_error\", \"message\": \"...\", \"errors\": { \"peer\": [\"...\"] } }\n{ \"status\": \"error\", \"success\": false, \"reason\": \"catalog_cooldown\", \"message\": \"...\", \"details\": {...} }\n```\n\n401 — token yo'q; 403 — boshqa foydalanuvchiniki; 404 — topilmadi; 409 — hozir bajarib bo'lmaydi (`reason`); 422 — validatsiya yoki `reason` (`phone_not_ready`, `no_peers`, `nothing_to_send`, `attachment_removed`); 429 — so'rovlar limiti (`Retry-After`) yoki katalog taymeri (`reason: catalog_cooldown`).\n\n## Limitlar\n\nLogin 5/daqiqa; `tg/auth`, `tg/code`, `tg/password` 10/daqiqa; `tg/send` va `single-messages` 60/daqiqa; qolganlari 120/daqiqa.\n\nTo'liq hujjat: repozitoriyadagi `docs/API.md` (shu jumladan `error_key` ro'yxati).\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Kirish",
+      "description": "Token olish. `Login` muvaffaqiyatli bo'lsa token avtomatik `{{token}}` ga yoziladi va qolgan so'rovlarda ishlatiladi.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "Email va parol bilan kirish. Javobdagi `token` ni `Authorization: Bearer <token>` sarlavhasida yuboring. Token muddatsiz.\n\nLimit: 5 urinish/daqiqa.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"user\": {\n    \"id\": 1,\n    \"name\": \"Ali Valiyev\",\n    \"role_id\": 1,\n    \"email\": \"ali@example.com\",\n    \"email_verified_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n  },\n  \"token\": \"1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+            },
+            {
+              "name": "401 noto'g'ri parol",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Email yoki parol noto‘g‘ri.\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('token keldi', () => pm.expect(pm.response.json().token).to.be.a('string'));",
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().token;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('token', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Profil",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile"
+              ]
+            },
+            "description": "Joriy foydalanuvchi."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/profile",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "profile"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Ali Valiyev\",\n  \"role_id\": 1,\n  \"email\": \"ali@example.com\",\n  \"email_verified_at\": \"2026-10-26T10:16:21.000000Z\",\n  \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n  \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n  \"phones\": [],\n  \"catalogs\": [],\n  \"avatar\": null,\n  \"avatar_url\": \"https://ui-avatars.com/api/?name=JB&background=0b8797&color=fff&size=128\"\n}"
+            },
+            {
+              "name": "401 token yo'q",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/profile",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "profile"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Unauthenticated.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Telegram akkauntlar",
+      "description": "Telegram akkauntini ulash: `tg/auth` → `tg/status` (awaits=code) → `tg/code` → `tg/status` (awaits=password bo'lsa `tg/password`) → `tg/status` (status=authorized).\n\nKod va parol fonda tekshiriladi, shuning uchun har qadamdan keyin `tg/status` ni 2 soniyada bir so'rang.",
+      "item": [
+        {
+          "name": "Akkauntlar ro'yxati",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/phones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "phones"
+              ]
+            },
+            "description": "`data.my_phones.items[]` — o'z akkauntlaringiz. Yuborish uchun `status` = `authorized` bo'lishi kerak. Superadmin `others_phones` ni ham ko'radi."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/phones",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "phones"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"my_phones\": {\n      \"count\": 1,\n      \"items\": [\n        {\n          \"id\": 1,\n          \"phone\": \"+998901112233\",\n          \"telegram_user_id\": \"777\",\n          \"is_owner\": true,\n          \"can_control\": true,\n          \"session_exists\": true,\n          \"status\": \"authorized\",\n          \"name\": \"Test Account\",\n          \"created_at\": \"2026-10-26 15:16:21\",\n          \"created_at_formatted\": \"26.10.2026 15:16\",\n          \"updated_at_formatted\": \"26.10.2026 15:16\",\n          \"owner\": {\n            \"id\": 1,\n            \"name\": \"Ali Valiyev\",\n            \"email\": \"ali@example.com\",\n            \"role\": \"user\"\n          }\n        }\n      ]\n    },\n    \"others_phones\": {\n      \"count\": 0,\n      \"visible\": false,\n      \"items\": []\n    },\n    \"stats\": {\n      \"total_my\": 1,\n      \"total_others\": 0,\n      \"total_all\": 1\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().data.my_phones.items[0]?.id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('phone_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1) Kod so'rash",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/auth",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "auth"
+              ]
+            },
+            "description": "Telefon raqamini yuboring (`+998...`). Telegram kod yuboradi (fonda). Javobdagi `phone_id` saqlanadi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/auth",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "auth"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"sms_sent\",\n  \"message\": \"Kod so‘raldi\",\n  \"session_id\": 1,\n  \"phone_id\": 1,\n  \"account_status\": \"requesting_code\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().phone_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('phone_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Holat (polling)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/status?phone={{phone}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "phone",
+                  "value": "{{phone}}"
+                }
+              ]
+            },
+            "description": "`awaits`: `code` | `password` | `null`. `status`: `requesting_code`, `code_sent`, `verifying`, `need_password`, `code_invalid`, `password_invalid`, `failed`, `authorized`, `revoked`, `logging_out`, `logged_out`. Xato bo'lsa `error` (kalit) va `error_text`."
+          },
+          "response": [
+            {
+              "name": "kod kutilmoqda",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/status?phone={{phone}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "status"
+                  ],
+                  "query": [
+                    {
+                      "key": "phone",
+                      "value": "{{phone}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"code_sent\",\n  \"label\": \"Kod kutilmoqda\",\n  \"phone_id\": 1,\n  \"awaits\": \"code\",\n  \"password_hint\": null,\n  \"error\": null,\n  \"error_text\": null\n}"
+            },
+            {
+              "name": "2FA parol kerak",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/status?phone={{phone}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "status"
+                  ],
+                  "query": [
+                    {
+                      "key": "phone",
+                      "value": "{{phone}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"need_password\",\n  \"label\": \"2FA parol kerak\",\n  \"phone_id\": 1,\n  \"awaits\": \"password\",\n  \"password_hint\": \"my hint\",\n  \"error\": null,\n  \"error_text\": null\n}"
+            },
+            {
+              "name": "ulandi",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/status?phone={{phone}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "status"
+                  ],
+                  "query": [
+                    {
+                      "key": "phone",
+                      "value": "{{phone}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"authorized\",\n  \"label\": \"Ulangan\",\n  \"phone_id\": 1,\n  \"awaits\": null,\n  \"password_hint\": null,\n  \"error\": null,\n  \"error_text\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "2) Kodni yuborish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "code"
+              ]
+            },
+            "description": "Telegram'dan kelgan kod. Noto'g'ri bo'lsa holat `code_invalid` bo'ladi va kodni qayta yuborish mumkin.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/code",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "code"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"processing\",\n  \"session_id\": 1,\n  \"message\": \"Kod tekshirilmoqda\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "3) 2FA parol",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "password"
+              ]
+            },
+            "description": "Faqat `awaits` = `password` bo'lganda. Parol hech qayerda saqlanmaydi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"password\": \"2fa-parol\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "password"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"password\": \"2fa-parol\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"processing\",\n  \"session_id\": 1,\n  \"message\": \"Parol tekshirilmoqda\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Yuborish",
+      "description": "Asosiy endpoint. **Asinxron**: darhol `group_id` qaytaradi, xabarlar fonda navbat orqali ketadi; natija — `GET /api/groups/{group_id}`.\n\n| Maydon | |\n|---|---|\n| `phone_id` / `phone` / `telegram_user_id` | qaysi akkauntdan (bittasi yetarli) |\n| `peer` **yoki** `catalog_ids[]` | **faqat bittasi**: bitta qabul qiluvchi yoki kataloglar |\n| `message` | HTML matn, ≤ 4096. `file` bo'lmasa majburiy |\n| `file` | ≤ 50 MB, `multipart/form-data` |\n| `repeat_every_minutes` | 1…43200: har aylana tugagach shuncha daqiqadan keyin qayta yuborish |\n| `max_rounds` | takrorlar soni (bo'lmasa — to'xtatilguncha) |\n\n`peer`: `@username`, `https://t.me/username`, `+998901234567` (telefon, `+` bilan), `-100…` (guruh/kanal ID).\n\nFayl: jpeg/png/webp ≤ 10 MB — rasm, qolganlari — hujjat. Matn — fayl izohi; 1024 belgidan uzun matn fayldan keyin alohida xabar bo'lib ketadi. Fayl yuborish tugagach serverdan o'chiriladi.\n\nLimit: 60 so'rov/daqiqa.",
+      "item": [
+        {
+          "name": "Bitta qabul qiluvchiga (katalogsiz)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "send"
+              ]
+            },
+            "description": "Asosiy endpoint. **Asinxron**: darhol `group_id` qaytaradi, xabarlar fonda navbat orqali ketadi; natija — `GET /api/groups/{group_id}`.\n\n| Maydon | |\n|---|---|\n| `phone_id` / `phone` / `telegram_user_id` | qaysi akkauntdan (bittasi yetarli) |\n| `peer` **yoki** `catalog_ids[]` | **faqat bittasi**: bitta qabul qiluvchi yoki kataloglar |\n| `message` | HTML matn, ≤ 4096. `file` bo'lmasa majburiy |\n| `file` | ≤ 50 MB, `multipart/form-data` |\n| `repeat_every_minutes` | 1…43200: har aylana tugagach shuncha daqiqadan keyin qayta yuborish |\n| `max_rounds` | takrorlar soni (bo'lmasa — to'xtatilguncha) |\n\n`peer`: `@username`, `https://t.me/username`, `+998901234567` (telefon, `+` bilan), `-100…` (guruh/kanal ID).\n\nFayl: jpeg/png/webp ≤ 10 MB — rasm, qolganlari — hujjat. Matn — fayl izohi; 1024 belgidan uzun matn fayldan keyin alohida xabar bo'lib ketadi. Fayl yuborish tugagach serverdan o'chiriladi.\n\nLimit: 60 so'rov/daqiqa.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"<b>Salom!</b> Bu test xabar.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"<b>Salom!</b> Bu test xabar.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"group_id\": 2,\n  \"peers_count\": 1\n}"
+            },
+            {
+              "name": "422 peer va catalog_ids birga",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"<b>Salom!</b> Bu test xabar.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"validation_error\",\n  \"message\": \"«kataloglar» maydoni «qabul qiluvchi» maydonini to‘ldirishga yo‘l qo‘ymaydi.\",\n  \"errors\": {\n    \"catalog_ids\": [\n      \"«kataloglar» maydoni «qabul qiluvchi» maydonini to‘ldirishga yo‘l qo‘ymaydi.\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "422 hech narsa yo'q",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"<b>Salom!</b> Bu test xabar.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"validation_error\",\n  \"message\": \"qabul qiluvchi ko‘rsatilmaganda «kataloglar» maydonini to‘ldiring. (and 2 more errors)\",\n  \"errors\": {\n    \"catalog_ids\": [\n      \"qabul qiluvchi ko‘rsatilmaganda «kataloglar» maydonini to‘ldiring.\"\n    ],\n    \"peer\": [\n      \"kataloglar ko‘rsatilmaganda «qabul qiluvchi» maydonini to‘ldiring.\"\n    ],\n    \"message\": [\n      \"file ko‘rsatilmaganda «xabar matni» maydonini to‘ldiring.\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "422 akkaunt topilmadi",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"<b>Salom!</b> Bu test xabar.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Phone not found or not yours.\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().group_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('group_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Telefon raqamiga",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "send"
+              ]
+            },
+            "description": "Raqam egasi Telegram'da bo'lmasa yoki raqamini yashirgan bo'lsa, xabar `failed` bo'ladi (`error_key: phone_not_found`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"peer\": \"+998901234567\",\n  \"message\": \"Salom\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"peer\": \"+998901234567\",\n  \"message\": \"Salom\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"group_id\": 2,\n  \"peers_count\": 1\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().group_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('group_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fayl bilan (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "send"
+              ]
+            },
+            "description": "`multipart/form-data`. `file` maydoniga faylni tanlang (Body → form-data → file). `message` ixtiyoriy (fayl izohi).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "phone_id",
+                  "value": "{{phone_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "peer",
+                  "value": "@username",
+                  "type": "text"
+                },
+                {
+                  "key": "message",
+                  "value": "<b>Narxlar ro'yxati</b>",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "phone_id",
+                      "value": "{{phone_id}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "peer",
+                      "value": "@username",
+                      "type": "text"
+                    },
+                    {
+                      "key": "message",
+                      "value": "<b>Narxlar ro'yxati</b>",
+                      "type": "text"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"group_id\": 3,\n  \"peers_count\": 1\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().group_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('group_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kataloglarga",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "send"
+              ]
+            },
+            "description": "Tanlangan kataloglarning barcha qabul qiluvchilariga (takrorlar bir marta). Katalogda `timer_minutes` bo'lsa, bitta akkauntdan shuncha daqiqada bir marta yuborish mumkin — aks holda `429 catalog_cooldown`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"catalog_ids\": [\n    \"{{catalog_id}}\"\n  ],\n  \"message\": \"Salom, <i>hammaga</i>!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"catalog_ids\": [\n    \"{{catalog_id}}\"\n  ],\n  \"message\": \"Salom, <i>hammaga</i>!\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"group_id\": 1,\n  \"peers_count\": 2\n}"
+            },
+            {
+              "name": "429 katalog taymerda",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"catalog_ids\": [\n    \"{{catalog_id}}\"\n  ],\n  \"message\": \"Salom, <i>hammaga</i>!\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"success\": false,\n  \"reason\": \"catalog_cooldown\",\n  \"message\": \"Katalog hali taymerda: Mijozlar (30 daqiqa) (30 daqiqa).\",\n  \"details\": {\n    \"catalogs\": \"Mijozlar (30 daqiqa) (30 daqiqa)\"\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().group_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('group_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Takroriy yuborish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "send"
+              ]
+            },
+            "description": "`repeat_every_minutes` — har aylana tugaganidan keyin shuncha daqiqa o'tib keyingisi boshlanadi. `max_rounds` — nechta aylana (ixtiyoriy). Javobda `loop_id`. To'xtatish: `POST /api/loops/{loop_id}/stop`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"Eslatma\",\n  \"repeat_every_minutes\": 60,\n  \"max_rounds\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/send",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "send"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@username\",\n  \"message\": \"Eslatma\",\n  \"repeat_every_minutes\": 60,\n  \"max_rounds\": 3\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"group_id\": 4,\n  \"loop_id\": 1,\n  \"peers_count\": 1\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().group_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('group_id', String(v));",
+                  "}",
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().loop_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('loop_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Natija va tarix",
+      "description": "Guruh (`group`) — bitta yuborish. Holatlar: `pending` → `sending` → `completed` | `failed` | `canceled`. Xabar holatlari: `pending`, `sending`, `sent`, `failed`, `canceled`; muvaffaqiyatsiz bo'lsa `error_key` (ro'yxat — docs/API.md).",
+      "item": [
+        {
+          "name": "Yuborish natijasi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups/{{group_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{group_id}}"
+              ]
+            },
+            "description": "`data.overview` — umumiy sonlar; `data.peers[]` — har bir qabul qiluvchi bo'yicha xabarlar va `error_key`; `data.group.attachment` — fayl; `data.group.loop` — takroriy yuborish.\n\nYuborish tugaguncha har 3–10 soniyada so'rang."
+          },
+          "response": [
+            {
+              "name": "200 OK (fayl bilan)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups/{{group_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups",
+                    "{{group_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"group\": {\n      \"id\": 3,\n      \"status\": \"completed\",\n      \"user_phone_id\": 1,\n      \"created_by\": 1,\n      \"message_text\": \"Narxlar\",\n      \"attachment_id\": 1,\n      \"send_loop_id\": null,\n      \"started_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"finished_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"updated_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"catalogs\": [],\n      \"messages\": [\n        {\n          \"id\": 4,\n          \"message_group_id\": 3,\n          \"telegram_message_id\": 1003,\n          \"peer\": \"+998901234567\",\n          \"message_text\": null,\n          \"send_at\": null,\n          \"claimed_at\": \"2026-10-26T10:16:22.000000Z\",\n          \"sent_at\": \"2026-10-26T10:16:22.000000Z\",\n          \"status\": \"sent\",\n          \"attempts\": 1,\n          \"error_key\": null,\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:22.000000Z\"\n        }\n      ],\n      \"phone\": {\n        \"id\": 1,\n        \"user_id\": 1,\n        \"phone\": \"+998901112233\",\n        \"status\": \"authorized\",\n        \"telegram_user_id\": \"777\",\n        \"first_name\": \"Test\",\n        \"last_name\": \"Account\",\n        \"username\": \"test_account\",\n        \"password_hint\": null,\n        \"last_error\": null,\n        \"login_started_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"authorized_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"last_checked_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"flood_until\": null,\n        \"last_sent_at\": \"2026-10-26T10:16:22.000000Z\",\n        \"session_delete_at\": null,\n        \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:22.000000Z\",\n        \"user\": {\n          \"id\": 1,\n          \"name\": \"Ali Valiyev\",\n          \"role_id\": 1,\n          \"email\": \"ali@example.com\",\n          \"email_verified_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n        }\n      },\n      \"attachment\": {\n        \"id\": 1,\n        \"original_name\": \"narxlar.pdf\",\n        \"mime_type\": \"application/pdf\",\n        \"size\": 204800,\n        \"kind\": \"document\",\n        \"removed_at\": null,\n        \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n      },\n      \"loop\": null\n    },\n    \"overview\": {\n      \"total_messages\": 1,\n      \"sent\": 1,\n      \"pending\": 0,\n      \"failed\": 0,\n      \"canceled\": 0,\n      \"started_at\": \"2026-10-26 15:16:21\",\n      \"finished_at\": \"2026-10-26 15:16:22\"\n    },\n    \"peers\": [\n      {\n        \"peer\": \"+998901234567\",\n        \"messages\": [\n          {\n            \"id\": 4,\n            \"message_group_id\": 3,\n            \"telegram_message_id\": 1003,\n            \"peer\": \"+998901234567\",\n            \"message_text\": null,\n            \"send_at\": null,\n            \"claimed_at\": \"2026-10-26T10:16:22.000000Z\",\n            \"sent_at\": \"2026-10-26T10:16:22.000000Z\",\n            \"status\": \"sent\",\n            \"attempts\": 1,\n            \"error_key\": null,\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:22.000000Z\"\n          }\n        ],\n        \"text\": \"Narxlar\",\n        \"total\": 1,\n        \"sent_count\": 1,\n        \"pending_count\": 0,\n        \"failed_count\": 0,\n        \"canceled_count\": 0,\n        \"created_at\": \"2026-10-26 15:16:21\",\n        \"sent_at\": \"2026-10-26 15:16:22\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "200 OK (katalog)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups/{{group_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups",
+                    "{{group_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"group\": {\n      \"id\": 1,\n      \"status\": \"completed\",\n      \"user_phone_id\": 1,\n      \"created_by\": 1,\n      \"message_text\": \"<b>Salom</b>\",\n      \"attachment_id\": null,\n      \"send_loop_id\": null,\n      \"started_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"finished_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"catalogs\": [\n        {\n          \"id\": 1,\n          \"user_id\": 1,\n          \"user_phone_id\": null,\n          \"title\": \"Mijozlar 2\",\n          \"is_global\": false,\n          \"timer_minutes\": 0,\n          \"peers\": [\n            \"@alice\",\n            \"@bob\"\n          ],\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"pivot\": {\n            \"message_group_id\": 1,\n            \"catalog_id\": 1,\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n          }\n        }\n      ],\n      \"messages\": [\n        {\n          \"id\": 2,\n          \"message_group_id\": 1,\n          \"telegram_message_id\": null,\n          \"peer\": \"@bob\",\n          \"message_text\": null,\n          \"send_at\": null,\n          \"claimed_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"sent_at\": null,\n          \"status\": \"failed\",\n          \"attempts\": 1,\n          \"error_key\": \"privacy_restricted\",\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n        },\n        {\n          \"id\": 1,\n          \"message_group_id\": 1,\n          \"telegram_message_id\": 1001,\n          \"peer\": \"@alice\",\n          \"message_text\": null,\n          \"send_at\": null,\n          \"claimed_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"sent_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"status\": \"sent\",\n          \"attempts\": 1,\n          \"error_key\": null,\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n        }\n      ],\n      \"phone\": {\n        \"id\": 1,\n        \"user_id\": 1,\n        \"phone\": \"+998901112233\",\n        \"status\": \"authorized\",\n        \"telegram_user_id\": \"777\",\n        \"first_name\": \"Test\",\n        \"last_name\": \"Account\",\n        \"username\": \"test_account\",\n        \"password_hint\": null,\n        \"last_error\": null,\n        \"login_started_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"authorized_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"last_checked_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"flood_until\": null,\n        \"last_sent_at\": \"2026-10-26T10:16:22.000000Z\",\n        \"session_delete_at\": null,\n        \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:22.000000Z\",\n        \"user\": {\n          \"id\": 1,\n          \"name\": \"Ali Valiyev\",\n          \"role_id\": 1,\n          \"email\": \"ali@example.com\",\n          \"email_verified_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n        }\n      },\n      \"attachment\": null,\n      \"loop\": null\n    },\n    \"overview\": {\n      \"total_messages\": 2,\n      \"sent\": 1,\n      \"pending\": 0,\n      \"failed\": 1,\n      \"canceled\": 0,\n      \"started_at\": \"2026-10-26 15:16:21\",\n      \"finished_at\": \"2026-10-26 15:16:21\"\n    },\n    \"peers\": [\n      {\n        \"peer\": \"@bob\",\n        \"messages\": [\n          {\n            \"id\": 2,\n            \"message_group_id\": 1,\n            \"telegram_message_id\": null,\n            \"peer\": \"@bob\",\n            \"message_text\": null,\n            \"send_at\": null,\n            \"claimed_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"sent_at\": null,\n            \"status\": \"failed\",\n            \"attempts\": 1,\n            \"error_key\": \"privacy_restricted\",\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n          }\n        ],\n        \"text\": \"<b>Salom</b>\",\n        \"total\": 1,\n        \"sent_count\": 0,\n        \"pending_count\": 0,\n        \"failed_count\": 1,\n        \"canceled_count\": 0,\n        \"created_at\": \"2026-10-26 15:16:21\",\n        \"sent_at\": null\n      },\n      {\n        \"peer\": \"@alice\",\n        \"messages\": [\n          {\n            \"id\": 1,\n            \"message_group_id\": 1,\n            \"telegram_message_id\": 1001,\n            \"peer\": \"@alice\",\n            \"message_text\": null,\n            \"send_at\": null,\n            \"claimed_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"sent_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"status\": \"sent\",\n            \"attempts\": 1,\n            \"error_key\": null,\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n          }\n        ],\n        \"text\": \"<b>Salom</b>\",\n        \"total\": 1,\n        \"sent_count\": 1,\n        \"pending_count\": 0,\n        \"failed_count\": 0,\n        \"canceled_count\": 0,\n        \"created_at\": \"2026-10-26 15:16:21\",\n        \"sent_at\": \"2026-10-26 15:16:21\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "404",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups/{{group_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups",
+                    "{{group_id}}"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Bekor qilish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups/{{group_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{group_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Navbatdagi xabarlar `canceled` bo'ladi; ayni paytda ketayotgan bitta xabar tugaydi. Takroriy yuborishning aylanasini bekor qilish takrorlashni ham to'xtatadi."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups/{{group_id}}/cancel",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups",
+                    "{{group_id}}",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Group already finished or canceled\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Tarix",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/history?search=&page=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "matn / telefon / ID"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Yuborishlar (15 tadan, eski format). `search` — matn, telefon, katalog nomi yoki ID bo'yicha."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/history?search=&page=1",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "history"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "matn / telefon / ID"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"type\": \"history\",\n  \"data\": {\n    \"current_page\": 1,\n    \"data\": [\n      {\n        \"id\": 2,\n        \"status\": \"completed\",\n        \"user_phone_id\": 1,\n        \"created_by\": 1,\n        \"message_text\": \"Salom\",\n        \"attachment_id\": null,\n        \"send_loop_id\": null,\n        \"started_at\": \"26.10.2026 15:16\",\n        \"finished_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"messages_count\": 1,\n        \"sent_count\": 1,\n        \"failed_count\": 0,\n        \"pending_count\": 0,\n        \"sending_count\": 0,\n        \"canceled_count\": 0,\n        \"phone\": {\n          \"id\": 1,\n          \"user_id\": 1,\n          \"phone\": \"+998901112233\",\n          \"first_name\": \"Test\",\n          \"last_name\": \"Account\",\n          \"username\": \"test_account\",\n          \"user\": {\n            \"id\": 1,\n            \"name\": \"Ali Valiyev\"\n          }\n        },\n        \"creator\": \"Ali Valiyev\",\n        \"catalogs\": [],\n        \"attachment\": null,\n        \"loop\": null,\n        \"messages\": [\n          {\n            \"id\": 3,\n            \"message_group_id\": 2,\n            \"peer\": \"@alice\",\n            \"message_text\": null,\n            \"status\": \"sent\",\n            \"error_key\": null,\n            \"sent_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n          }\n        ],\n        \"type\": \"messages\",\n        \"peers_count\": 1,\n        \"total_messages\": 1,\n        \"messages_status_count\": {\n          \"pending\": 0,\n          \"sent\": 1,\n          \"failed\": 0\n        },\n        \"text\": \"Salom\",\n        \"phone_number\": \"+998901112233\",\n        \"last_sent_at\": \"26.10.2026 15:16\"\n      },\n      {\n        \"id\": 1,\n        \"status\": \"completed\",\n        \"user_phone_id\": 1,\n        \"created_by\": 1,\n        \"message_text\": \"<b>Salom</b>\",\n        \"attachment_id\": null,\n        \"send_loop_id\": null,\n        \"started_at\": \"26.10.2026 15:16\",\n        \"finished_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"messages_count\": 2,\n        \"sent_count\": 1,\n        \"failed_count\": 1,\n        \"pending_count\": 0,\n        \"sending_count\": 0,\n        \"canceled_count\": 0,\n        \"phone\": {\n          \"id\": 1,\n          \"user_id\": 1,\n          \"phone\": \"+998901112233\",\n          \"first_name\": \"Test\",\n          \"last_name\": \"Account\",\n          \"username\": \"test_account\",\n          \"user\": {\n            \"id\": 1,\n            \"name\": \"Ali Valiyev\"\n          }\n        },\n        \"creator\": \"Ali Valiyev\",\n        \"catalogs\": [\n          {\n            \"id\": 1,\n            \"title\": \"Mijozlar 2\",\n            \"pivot\": {\n              \"message_group_id\": 1,\n              \"catalog_id\": 1,\n              \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n              \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n            }\n          }\n        ],\n        \"attachment\": null,\n        \"loop\": null,\n        \"messages\": [\n          {\n            \"id\": 1,\n            \"message_group_id\": 1,\n            \"peer\": \"@alice\",\n            \"message_text\": null,\n            \"status\": \"sent\",\n            \"error_key\": null,\n            \"sent_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n          },\n          {\n            \"id\": 2,\n            \"message_group_id\": 1,\n            \"peer\": \"@bob\",\n            \"message_text\": null,\n            \"status\": \"failed\",\n            \"error_key\": \"privacy_restricted\",\n            \"sent_at\": null,\n            \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n            \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n          }\n        ],\n        \"type\": \"messages\",\n        \"peers_count\": 2,\n        \"total_messages\": 2,\n        \"messages_status_count\": {\n          \"pending\": 0,\n          \"sent\": 1,\n          \"failed\": 1\n        },\n        \"text\": \"<b>Salom</b>\",\n        \"phone_number\": \"+998901112233\",\n        \"last_sent_at\": \"26.10.2026 15:16\"\n      }\n    ],\n    \"first_page_url\": \"https://telegram.websol.uz/api/history?search=Salom&page=1\",\n    \"from\": 1,\n    \"last_page\": 1,\n    \"last_page_url\": \"https://telegram.websol.uz/api/history?search=Salom&page=1\",\n    \"links\": [\n      {\n        \"url\": null,\n        \"label\": \"&laquo; Oldingi\",\n        \"page\": null,\n        \"active\": false\n      },\n      {\n        \"url\": \"https://telegram.websol.uz/api/history?search=Salom&page=1\",\n        \"label\": \"1\",\n        \"page\": 1,\n        \"active\": true\n      }\n    ],\n    \"next_page_url\": null,\n    \"path\": \"https://telegram.websol.uz/api/history\",\n    \"per_page\": 15,\n    \"prev_page_url\": null,\n    \"to\": 2,\n    \"total\": 2\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Takroriy yuborishlar",
+      "description": "`POST /api/tg/send` + `repeat_every_minutes` bilan yaratiladi. Holat: `active`, `stopped` (`stop_reason`: `canceled`, `phone_not_ready`, `attachment_removed`, `no_peers`), `finished`.",
+      "item": [
+        {
+          "name": "Ro'yxat",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/loops?status=active&per_page=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "loops"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": "active | stopped | finished"
+                },
+                {
+                  "key": "per_page",
+                  "value": "15"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/loops?status=active&per_page=15",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "loops"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "description": "active | stopped | finished"
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "15"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"current_page\": 1,\n  \"last_page\": 1,\n  \"total\": 1,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"status\": \"active\",\n      \"phone_id\": 1,\n      \"phone\": \"+998901112233\",\n      \"message\": \"Eslatma\",\n      \"file\": null,\n      \"catalog_ids\": [],\n      \"peers\": [\n        \"@alice\"\n      ],\n      \"every_minutes\": 60,\n      \"max_rounds\": 3,\n      \"rounds_done\": 1,\n      \"next_run_at\": \"2026-10-26 16:16:22\",\n      \"stopped_at\": null,\n      \"stop_reason\": null,\n      \"created_at\": \"2026-10-26 15:16:21\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Bitta takroriy yuborish",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/loops/{{loop_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "loops",
+                "{{loop_id}}"
+              ]
+            },
+            "description": "Holat, keyingi aylana vaqti (`next_run_at`) va oxirgi 20 aylana (`rounds[]`, har biri — `group_id`)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/loops/{{loop_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "loops",
+                    "{{loop_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"id\": 1,\n    \"status\": \"active\",\n    \"phone_id\": 1,\n    \"phone\": \"+998901112233\",\n    \"message\": \"Eslatma\",\n    \"file\": null,\n    \"catalog_ids\": [],\n    \"peers\": [\n      \"@alice\"\n    ],\n    \"every_minutes\": 60,\n    \"max_rounds\": 3,\n    \"rounds_done\": 1,\n    \"next_run_at\": \"2026-10-26 16:16:22\",\n    \"stopped_at\": null,\n    \"stop_reason\": null,\n    \"created_at\": \"2026-10-26 15:16:21\",\n    \"rounds\": [\n      {\n        \"group_id\": 4,\n        \"status\": \"completed\",\n        \"total\": 1,\n        \"sent\": 1,\n        \"failed\": 0,\n        \"pending\": 0,\n        \"created_at\": \"2026-10-26 15:16:21\",\n        \"finished_at\": \"2026-10-26 15:16:22\"\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "To'xtatish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/loops/{{loop_id}}/stop",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "loops",
+                "{{loop_id}}",
+                "stop"
+              ]
+            },
+            "description": "Yangi aylanalar boshlanmaydi, ketayotgani bekor qilinadi."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/loops/{{loop_id}}/stop",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "loops",
+                    "{{loop_id}}",
+                    "stop"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"success\",\n  \"message\": \"Loop stopped\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Kataloglar",
+      "description": "Qabul qiluvchilar ro'yxatlari. `peers` — massiv yoki `peers_text` (har qatorda bitta). Formatlar normallashtiriladi: `t.me/bob` → `@bob`.",
+      "item": [
+        {
+          "name": "Ro'yxat",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/catalogs?tab=my&search=&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "catalogs"
+              ],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "my",
+                  "description": "my | all"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "`tab=my` — o'zingizniki, `tab=all` — umumiy (global) kataloglar ham."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/catalogs?tab=my&search=&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "catalogs"
+                  ],
+                  "query": [
+                    {
+                      "key": "tab",
+                      "value": "my",
+                      "description": "my | all"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"tab\": \"my\",\n    \"my_catalogs\": {\n      \"current_page\": 1,\n      \"data\": [\n        {\n          \"id\": 1,\n          \"user_id\": 1,\n          \"user_phone_id\": null,\n          \"title\": \"Mijozlar\",\n          \"is_global\": false,\n          \"timer_minutes\": 0,\n          \"peers\": [\n            \"@alice\",\n            \"t.me/bob\"\n          ],\n          \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n          \"user\": {\n            \"id\": 1,\n            \"name\": \"Ali Valiyev\"\n          }\n        }\n      ],\n      \"first_page_url\": \"https://telegram.websol.uz/api/catalogs?my_page=1\",\n      \"from\": 1,\n      \"last_page\": 1,\n      \"last_page_url\": \"https://telegram.websol.uz/api/catalogs?my_page=1\",\n      \"links\": [\n        {\n          \"url\": null,\n          \"label\": \"&laquo; Oldingi\",\n          \"page\": null,\n          \"active\": false\n        },\n        {\n          \"url\": \"https://telegram.websol.uz/api/catalogs?my_page=1\",\n          \"label\": \"1\",\n          \"page\": 1,\n          \"active\": true\n        }\n      ],\n      \"next_page_url\": null,\n      \"path\": \"https://telegram.websol.uz/api/catalogs\",\n      \"per_page\": 20,\n      \"prev_page_url\": null,\n      \"to\": 1,\n      \"total\": 1\n    },\n    \"all_catalogs\": {\n      \"current_page\": 1,\n      \"data\": [],\n      \"first_page_url\": \"https://telegram.websol.uz/api/catalogs?all_page=1\",\n      \"from\": null,\n      \"last_page\": 1,\n      \"last_page_url\": \"https://telegram.websol.uz/api/catalogs?all_page=1\",\n      \"links\": [\n        {\n          \"url\": null,\n          \"label\": \"&laquo; Oldingi\",\n          \"page\": null,\n          \"active\": false\n        },\n        {\n          \"url\": \"https://telegram.websol.uz/api/catalogs?all_page=1\",\n          \"label\": \"1\",\n          \"page\": 1,\n          \"active\": true\n        }\n      ],\n      \"next_page_url\": null,\n      \"path\": \"https://telegram.websol.uz/api/catalogs\",\n      \"per_page\": 20,\n      \"prev_page_url\": null,\n      \"to\": null,\n      \"total\": 0\n    },\n    \"can_see_all\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Yaratish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/catalogs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "catalogs"
+              ]
+            },
+            "description": "`timer_minutes` — bitta akkauntdan shu katalogga necha daqiqada bir marta yuborish mumkin (0/null — cheklovsiz).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Mijozlar\",\n  \"peers\": [\n    \"@alice\",\n    \"t.me/bob\",\n    \"+998901234567\"\n  ],\n  \"timer_minutes\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/catalogs",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "catalogs"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Mijozlar\",\n  \"peers\": [\n    \"@alice\",\n    \"t.me/bob\",\n    \"+998901234567\"\n  ],\n  \"timer_minutes\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Katalog muvaffaqiyatli yaratildi\",\n  \"data\": {\n    \"title\": \"Mijozlar\",\n    \"peers\": [\n      \"@alice\",\n      \"t.me/bob\"\n    ],\n    \"timer_minutes\": 0,\n    \"user_id\": 1,\n    \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"id\": 1,\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Ali Valiyev\"\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().data.id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('catalog_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ko'rish",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/catalogs/{{catalog_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "catalogs",
+                "{{catalog_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/catalogs/{{catalog_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "catalogs",
+                    "{{catalog_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 1,\n    \"user_id\": 1,\n    \"user_phone_id\": null,\n    \"title\": \"Mijozlar\",\n    \"is_global\": false,\n    \"timer_minutes\": 0,\n    \"peers\": [\n      \"@alice\",\n      \"t.me/bob\"\n    ],\n    \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Ali Valiyev\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "O'zgartirish",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/catalogs/{{catalog_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "catalogs",
+                "{{catalog_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Mijozlar 2\",\n  \"peers\": [\n    \"@alice\",\n    \"@bob\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/catalogs/{{catalog_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "catalogs",
+                    "{{catalog_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Mijozlar 2\",\n  \"peers\": [\n    \"@alice\",\n    \"@bob\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Katalog yangilandi\",\n  \"data\": {\n    \"id\": 1,\n    \"user_id\": 1,\n    \"user_phone_id\": null,\n    \"title\": \"Mijozlar 2\",\n    \"is_global\": false,\n    \"timer_minutes\": 0,\n    \"peers\": [\n      \"@alice\",\n      \"@bob\"\n    ],\n    \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Ali Valiyev\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "O'chirish",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/catalogs/{{catalog_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "catalogs",
+                "{{catalog_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/catalogs/{{catalog_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "catalogs",
+                    "{{catalog_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Katalog o‘chirildi\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Foydalanuvchilarga nusxalash (superadmin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/catalogs/duplicate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "catalogs",
+                "duplicate"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"catalog_id\": \"{{catalog_id}}\",\n  \"user_ids\": [\n    2,\n    3\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/catalogs/duplicate",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "catalogs",
+                    "duplicate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"catalog_id\": \"{{catalog_id}}\",\n  \"user_ids\": [\n    2,\n    3\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"1 ta foydalanuvchiga nusxa ko‘chirildi\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Yakka xabarlar (Telegram ID / telefon)",
+      "description": "Eski integratsiyalar uchun. Yangi integratsiyada `POST /api/tg/send` + `peer` qulayroq (fayl va takrorlash bor).",
+      "item": [
+        {
+          "name": "Yuborish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/telegram/single-messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "telegram",
+                "single-messages"
+              ]
+            },
+            "description": "`target_tg_id` yoki `target_phone` (kamida bittasi). Javob `202`, holatni `task_id` bo'yicha tekshiring: `pending`, `processing`, `sent`, `failed` (+ `error_code`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sender_phone_id\": \"{{phone_id}}\",\n  \"target_phone\": \"+998901234567\",\n  \"message\": \"Salom\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "202 Accepted",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/telegram/single-messages",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "telegram",
+                    "single-messages"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sender_phone_id\": \"{{phone_id}}\",\n  \"target_phone\": \"+998901234567\",\n  \"message\": \"Salom\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Accepted",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"So‘rov qabul qilindi\",\n  \"task_id\": 1,\n  \"status\": \"pending\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().task_id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('task_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Holat",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/telegram/single-messages/{{task_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "telegram",
+                "single-messages",
+                "{{task_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/telegram/single-messages/{{task_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "telegram",
+                    "single-messages",
+                    "{{task_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 1,\n  \"sender_phone_id\": 1,\n  \"target_tg_id\": null,\n  \"target_phone\": \"+998901234567\",\n  \"message_text\": \"Salom\",\n  \"status\": \"sent\",\n  \"error_code\": null,\n  \"error_message\": null,\n  \"sent_at\": \"2026-10-26 15:16:22\",\n  \"created_at\": \"2026-10-26 15:16:22\",\n  \"meta\": {\n    \"user_id\": 1,\n    \"request_ip\": \"127.0.0.1\"\n  },\n  \"updated_at\": \"2026-10-26 15:16:22\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Ro'yxat",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/telegram/single-messages?status=sent&sender_phone_id=&search=&date_from=&date_to=&per_page=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "telegram",
+                "single-messages"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "sent",
+                  "description": "pending | processing | sent | failed"
+                },
+                {
+                  "key": "sender_phone_id",
+                  "value": ""
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "date_from",
+                  "value": ""
+                },
+                {
+                  "key": "date_to",
+                  "value": ""
+                },
+                {
+                  "key": "per_page",
+                  "value": "15"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/telegram/single-messages?status=sent&sender_phone_id=&search=&date_from=&date_to=&per_page=15",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "telegram",
+                    "single-messages"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "sent",
+                      "description": "pending | processing | sent | failed"
+                    },
+                    {
+                      "key": "sender_phone_id",
+                      "value": ""
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    },
+                    {
+                      "key": "date_from",
+                      "value": ""
+                    },
+                    {
+                      "key": "date_to",
+                      "value": ""
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "15"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"current_page\": 1,\n  \"last_page\": 1,\n  \"per_page\": 15,\n  \"total\": 1,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"sender_phone_id\": 1,\n      \"target_tg_id\": null,\n      \"target_phone\": \"+998901234567\",\n      \"message_text\": \"Salom\",\n      \"status\": \"sent\",\n      \"error_code\": null,\n      \"error_message\": null,\n      \"sent_at\": \"2026-10-26 15:16:22\",\n      \"created_at\": \"2026-10-26 15:16:22\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Chat tarixi",
+      "description": "Akkaunt bilan qabul qiluvchi orasidagi yozishmani yuklash.",
+      "item": [
+        {
+          "name": "Yuklashni boshlash",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/fetch-messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "fetch-messages"
+              ]
+            },
+            "description": "Fonda yuklaydi; natija — `chat-logs`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@alice\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/fetch-messages",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fetch-messages"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone_id\": \"{{phone_id}}\",\n  \"peer\": \"@alice\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Job dispatched. Messages will be fetched shortly.\",\n  \"url\": \"https://telegram.websol.uz/api/chat-logs?phone_id=1&peer=%40alice\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Yozishma",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat-logs?phone_id={{phone_id}}&peer=@alice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat-logs"
+              ],
+              "query": [
+                {
+                  "key": "phone_id",
+                  "value": "{{phone_id}}"
+                },
+                {
+                  "key": "peer",
+                  "value": "@alice"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/chat-logs?phone_id={{phone_id}}&peer=@alice",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "chat-logs"
+                  ],
+                  "query": [
+                    {
+                      "key": "phone_id",
+                      "value": "{{phone_id}}"
+                    },
+                    {
+                      "key": "peer",
+                      "value": "@alice"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"group\": \"@alice\",\n  \"chat_type\": null,\n  \"messages\": {\n    \"current_page\": 1,\n    \"data\": [],\n    \"first_page_url\": \"https://telegram.websol.uz/api/chat-logs?phone_id=1&peer=%40alice&page=1\",\n    \"from\": null,\n    \"last_page\": 1,\n    \"last_page_url\": \"https://telegram.websol.uz/api/chat-logs?phone_id=1&peer=%40alice&page=1\",\n    \"links\": [\n      {\n        \"url\": null,\n        \"label\": \"&laquo; Oldingi\",\n        \"page\": null,\n        \"active\": false\n      },\n      {\n        \"url\": \"https://telegram.websol.uz/api/chat-logs?phone_id=1&peer=%40alice&page=1\",\n        \"label\": \"1\",\n        \"page\": 1,\n        \"active\": true\n      }\n    ],\n    \"next_page_url\": null,\n    \"path\": \"https://telegram.websol.uz/api/chat-logs\",\n    \"per_page\": 50,\n    \"prev_page_url\": null,\n    \"to\": null,\n    \"total\": 0\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Foydalanuvchilar (superadmin)",
+      "description": "Faqat superadmin tokeni bilan.",
+      "item": [
+        {
+          "name": "Ro'yxat",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/users",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"current_page\": 1,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"Ali Valiyev\",\n      \"role_id\": 1,\n      \"email\": \"ali@example.com\",\n      \"email_verified_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"updated_at\": \"2026-10-26T10:16:21.000000Z\",\n      \"role\": {\n        \"id\": 1,\n        \"name\": \"user\",\n        \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n      }\n    },\n    {\n      \"id\": 2,\n      \"name\": \"Tobin Ratke\",\n      \"role_id\": 2,\n      \"email\": \"renner.vivienne@example.com\",\n      \"email_verified_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"created_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"updated_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"role\": {\n        \"id\": 2,\n        \"name\": \"superadmin\",\n        \"created_at\": \"2026-10-26T10:16:22.000000Z\",\n        \"updated_at\": \"2026-10-26T10:16:22.000000Z\"\n      }\n    }\n  ],\n  \"first_page_url\": \"https://telegram.websol.uz/api/users?page=1\",\n  \"from\": 1,\n  \"last_page\": 1,\n  \"last_page_url\": \"https://telegram.websol.uz/api/users?page=1\",\n  \"links\": [\n    {\n      \"url\": null,\n      \"label\": \"&laquo; Oldingi\",\n      \"page\": null,\n      \"active\": false\n    },\n    {\n      \"url\": \"https://telegram.websol.uz/api/users?page=1\",\n      \"label\": \"1\",\n      \"page\": 1,\n      \"active\": true\n    }\n  ],\n  \"next_page_url\": null,\n  \"path\": \"https://telegram.websol.uz/api/users\",\n  \"per_page\": 20,\n  \"prev_page_url\": null,\n  \"to\": 2,\n  \"total\": 2\n}"
+            }
+          ]
+        },
+        {
+          "name": "Rollar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "roles"
+              ]
+            },
+            "description": ""
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/users/roles",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "roles"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"user\",\n    \"created_at\": \"2026-10-26T10:16:21.000000Z\",\n    \"updated_at\": \"2026-10-26T10:16:21.000000Z\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"superadmin\",\n    \"created_at\": \"2026-10-26T10:16:22.000000Z\",\n    \"updated_at\": \"2026-10-26T10:16:22.000000Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Yaratish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "`role_id` — `users/roles` dan.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ali\",\n  \"email\": \"ali@example.com\",\n  \"password\": \"password123\",\n  \"role_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/users",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Ali\",\n  \"email\": \"ali@example.com\",\n  \"password\": \"password123\",\n  \"role_id\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"User created successfully\",\n  \"user\": {\n    \"name\": \"Ali\",\n    \"email\": \"ali@example.com\",\n    \"role_id\": 2,\n    \"updated_at\": \"2026-10-26T10:16:22.000000Z\",\n    \"created_at\": \"2026-10-26T10:16:22.000000Z\",\n    \"id\": 3,\n    \"role\": {\n      \"id\": 2,\n      \"name\": \"superadmin\",\n      \"created_at\": \"2026-10-26T10:16:22.000000Z\",\n      \"updated_at\": \"2026-10-26T10:16:22.000000Z\"\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const v = pm.response.json().user?.id;",
+                  "    if (v !== undefined && v !== null) pm.collectionVariables.set('user_id', String(v));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ko'rish",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "O'zgartirish",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "`password` ixtiyoriy.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ali\",\n  \"email\": \"ali@example.com\",\n  \"role_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "O'chirish",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. Statistika (tashqi dashboard)",
+      "description": "Bearer token emas, `X-Stats-Token` sarlavhasi (serverdagi `STATS_API_TOKEN`) bilan.",
+      "item": [
+        {
+          "name": "Top foydalanuvchilar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "X-Stats-Token",
+                "value": "{{stats_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stats/top-users?period=week&type=top&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "stats",
+                "top-users"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week",
+                  "description": "day | week | month | year | all"
+                },
+                {
+                  "key": "type",
+                  "value": "top",
+                  "description": "top | bottom | both"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "X-Stats-Token",
+                    "value": "{{stats_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/stats/top-users?period=week&type=top&limit=10",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "stats",
+                    "top-users"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "description": "day | week | month | year | all"
+                    },
+                    {
+                      "key": "type",
+                      "value": "top",
+                      "description": "top | bottom | both"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"generated_at\": \"2026-10-26 15:16:22\",\n  \"period\": \"week\",\n  \"type\": \"top\",\n  \"limit\": 5,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"Ali Valiyev\",\n      \"email\": \"ali@example.com\",\n      \"operations_count\": 5,\n      \"messages_count\": 6\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Holat bo'yicha top",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "X-Stats-Token",
+                "value": "{{stats_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stats/top-users-by-status?status=sent&limit=10&period=all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "stats",
+                "top-users-by-status"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "sent",
+                  "description": "sent | failed | pending | canceled"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "period",
+                  "value": "all"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "X-Stats-Token",
+                    "value": "{{stats_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/stats/top-users-by-status?status=sent&limit=10&period=all",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "stats",
+                    "top-users-by-status"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "sent",
+                      "description": "sent | failed | pending | canceled"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "period",
+                      "value": "all"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"generated_at\": \"2026-10-26 15:16:22\",\n  \"status\": \"sent\",\n  \"limit\": 5,\n  \"period\": \"all\",\n  \"top\": [\n    {\n      \"id\": 1,\n      \"name\": \"Ali Valiyev\",\n      \"email\": \"ali@example.com\",\n      \"status\": \"sent\",\n      \"messages_count\": 6,\n      \"messages_text\": \"6 ta Yuborilgan habar\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Real vaqt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              },
+              {
+                "key": "X-Stats-Token",
+                "value": "{{stats_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stats/dashboard-realtime?per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "stats",
+                "dashboard-realtime"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  },
+                  {
+                    "key": "X-Stats-Token",
+                    "value": "{{stats_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/stats/dashboard-realtime?per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "stats",
+                    "dashboard-realtime"
+                  ],
+                  "query": [
+                    {
+                      "key": "per_page",
+                      "value": "20"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"fetched_at\": \"2026-10-26 15:16:22\",\n  \"count\": 5,\n  \"groups\": [\n    {\n      \"id\": 5,\n      \"creator\": {\n        \"id\": 1,\n        \"name\": \"Ali Valiyev\"\n      },\n      \"messages_count\": 2,\n      \"sent_count\": 2,\n      \"percent\": 100,\n      \"status\": \"completed\",\n      \"started_at\": \"2026-10-26 15:16:21\",\n      \"finished_at\": \"2026-10-26 15:16:22\",\n      \"text_preview\": \"x\"\n    },\n    {\n      \"id\": 4,\n      \"creator\": {\n        \"id\": 1,\n        \"name\": \"Ali Valiyev\"\n      },\n      \"messages_count\": 1,\n      \"sent_count\": 1,\n      \"percent\": 100,\n      \"status\": \"completed\",\n      \"started_at\": \"2026-10-26 15:16:21\",\n      \"finished_at\": \"2026-10-26 15:16:22\",\n      \"text_preview\": \"Eslatma\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Chiqish",
+      "description": "Oxirida: akkauntni Telegram'dan uzish va API tokenni o'chirish.",
+      "item": [
+        {
+          "name": "Akkauntdan chiqish (Telegram)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tg/logout/{{phone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tg",
+                "logout",
+                "{{phone_id}}"
+              ]
+            },
+            "description": "Telegram sessiyasini yopadi (fonda). Akkauntning navbatdagi xabarlari bekor bo'ladi; qayta yuborish uchun akkauntni qayta ulash kerak."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/tg/logout/{{phone_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tg",
+                    "logout",
+                    "{{phone_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"processing\",\n  \"message\": \"Chiqish boshlandi\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout (token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "{{lang}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "logout"
+              ]
+            },
+            "description": "Faqat shu so'rovda ishlatilgan API tokenni o'chiradi."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{lang}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/logout",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "logout"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Logged out\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": "",
+      "description": "Login so'rovi o'zi yozadi"
+    },
+    {
+      "key": "phone_id",
+      "value": ""
+    },
+    {
+      "key": "group_id",
+      "value": ""
+    },
+    {
+      "key": "loop_id",
+      "value": ""
+    },
+    {
+      "key": "catalog_id",
+      "value": ""
+    },
+    {
+      "key": "task_id",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    }
+  ]
+}
