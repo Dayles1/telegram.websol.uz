@@ -1,56 +1,27 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kirish</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>
-    body { background: #f0f2f5; }
-    .auth-box {
-        max-width: 400px;
-        margin: 80px auto;
-        padding: 30px;
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-    }
-    .btn-primary { background-color: #0d6efd !important; }
-</style>
-</head>
-<body>
-<div class="auth-box">
+<x-layouts.guest :title="__('auth.title')">
+    <h1 class="text-2xl font-semibold tracking-[-0.02em] text-gray-950 dark:text-white">{{ __('auth.heading') }}</h1>
+    <p class="c-muted mt-1.5 text-[13px]">{{ __('auth.subheading') }}</p>
 
-    <h3 class="text-center mb-4">Kirish</h3>
-
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            <ul class="mb-0">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <form method="POST" action="{{ route('login') }}">
+    <form method="POST" action="{{ route('login') }}" class="mt-8 space-y-4" x-data="{ busy: false }" @submit="busy = true">
         @csrf
-        <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" value="{{ old('email') }}" class="form-control" required>
-        </div>
+        <x-ui.field :label="__('auth.email')" for="email" error="email">
+            <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="username"
+                   class="c-input" @error('email') aria-invalid="true" @enderror>
+        </x-ui.field>
 
-        <div class="mb-3">
-            <label class="form-label">Parol</label>
-            <input type="password" name="password" class="form-control" required>
-        </div>
+        <x-ui.field :label="__('auth.password_label')" for="password" error="password">
+            <input id="password" name="password" type="password" required autocomplete="current-password" class="c-input">
+        </x-ui.field>
 
-        <button type="submit" class="btn btn-primary w-100">Kirish</button>
+        <label class="flex items-center gap-2 text-[13px]">
+            <input type="checkbox" name="remember" value="1" class="c-check"> {{ __('auth.remember') }}
+        </label>
+
+        <x-ui.button type="submit" variant="primary" size="lg" class="w-full" ::disabled="busy">{{ __('auth.submit') }}</x-ui.button>
     </form>
 
-    {{-- <p class="mt-3 text-center">
-        <a href="{{ route('register.form') }}">Hisobingiz yo‘qmi? Ro‘yxatdan o‘tish</a>
-    </p> --}}
-</div>
-</body>
-</html>
+    <form method="POST" action="{{ route('locale', app()->getLocale() === 'ru' ? 'uz' : 'ru') }}" class="mt-8 text-center">
+        @csrf
+        <button class="c-muted text-xs hover:text-gray-900 dark:hover:text-white">{{ app()->getLocale() === 'ru' ? 'O‘zbekcha' : 'Русский' }}</button>
+    </form>
+</x-layouts.guest>
