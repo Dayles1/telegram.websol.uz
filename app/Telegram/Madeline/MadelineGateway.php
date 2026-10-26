@@ -70,7 +70,25 @@ final class MadelineGateway implements TelegramGateway
 
     private function api(string $sessionPath): API
     {
+        $this->endWorkerAfterJob();
+
         return new API($sessionPath, $this->settings->make());
+    }
+
+    /**
+     * A MadelineProto instance never really closes inside a PHP process: its event
+     * loop, IPC server and worker pool outlive the job that opened it. Left alive in a
+     * long-running queue worker, it holds the session while the next step of the same
+     * login runs in another process, breaks when a new login deletes the session
+     * ("Could not read the lightstate file"), and once its pool dies every later job
+     * of that process fails with "The pool was shut down". So a queue worker that
+     * opened a session exits after the job and supervisor starts a fresh one.
+     */
+    private function endWorkerAfterJob(): void
+    {
+        if (app()->resolved('queue.worker')) {
+            app('queue.worker')->shouldQuit = true;
+        }
     }
 
     private function self(API $api): Profile

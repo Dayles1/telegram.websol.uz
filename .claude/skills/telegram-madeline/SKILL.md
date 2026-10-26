@@ -29,6 +29,9 @@ All Telegram calls go through `App\Telegram\Contracts\TelegramGateway` /
   model, no prompts, Madeline log in `storage/logs/madeline/`, never in `public/`). Values come
   from `config/telegram.php`; `env()` only in config.
 - Vendor calls are wrapped in `App\Telegram\Madeline\NoticeShield::guard()`.
+- A queue worker that opened a session exits after that job (`MadelineGateway::endWorkerAfterJob`,
+  supervisor starts a fresh one): a Madeline instance outlives its job, and a leftover one breaks
+  the next login step or poisons the process ("The pool was shut down").
 
 ## Login state machine
 
