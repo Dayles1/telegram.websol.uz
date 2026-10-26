@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'title' => 'Bosh sahifa',
+    'hello' => 'Assalomu alaykum, :name',
+    'description' => 'Hozir nima yuborilmoqda va kun qanday o‘tdi.',
+    'new_send' => 'Yangi yuborish',
+    'sent_today' => 'Bugun yetkazildi',
+    'success_rate' => ':rate% muvaffaqiyatli',
+    'failed_today' => 'Bugungi xatolar',
+    'in_queue' => 'Navbatda',
+    'active_sends' => 'Hozir ketmoqda',
+    'live' => 'Hozir yuborilmoqda',
+    'all_active' => 'Barcha faollar',
+    'nothing_sending' => 'Hozir hech narsa yuborilmayapti',
+    'nothing_sending_text' => 'Yangi yuborish ishga tushishi bilan shu yerda ko‘rinadi.',
+    'recent' => 'Oxirgi yuborishlar',
+    'history' => 'Tarix',
+    'no_history' => 'Hali yuborishlar bo‘lmagan',
+    'week' => '7 kun',
+    'delivered' => 'Yetkazildi',
+    'errors' => 'Xatolar',
+    'my_phones' => 'Mening akkauntlarim',
+    'manage' => 'Boshqarish',
+];

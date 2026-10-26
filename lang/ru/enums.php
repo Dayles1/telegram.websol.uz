@@ -1,0 +1,59 @@
+<?php
+
+return [
+    'role' => [
+        'user' => 'Пользователь',
+        'superadmin' => 'Суперадмин',
+    ],
+    'account_status' => [
+        'requesting_code' => 'Запрос кода',
+        'code_sent' => 'Ждёт код',
+        'verifying' => 'Проверка',
+        'need_password' => 'Нужен пароль 2FA',
+        'code_invalid' => 'Неверный код',
+        'password_invalid' => 'Неверный пароль',
+        'failed' => 'Ошибка входа',
+        'authorized' => 'Подключён',
+        'revoked' => 'Сессия закрыта',
+        'logging_out' => 'Выход…',
+        'logged_out' => 'Отключён',
+    ],
+    'group_status' => [
+        'pending' => 'В очереди',
+        'sending' => 'Отправляется',
+        'completed' => 'Завершена',
+        'failed' => 'Не доставлена',
+        'canceled' => 'Остановлена',
+        'sent' => 'Отправлена',
+        'processing' => 'Отправлялась (старое)',
+        'infinity_pending' => 'Повтор (старое)',
+    ],
+    'loop_status' => [
+        'active' => 'Повторяется',
+        'stopped' => 'Остановлена',
+        'finished' => 'Завершена',
+    ],
+    'message_status' => [
+        'pending' => 'В очереди',
+        'sending' => 'Отправляется',
+        'sent' => 'Доставлено',
+        'failed' => 'Ошибка',
+        'canceled' => 'Отменено',
+    ],
+    'event_level' => [
+        'info' => 'Инфо',
+        'warning' => 'Внимание',
+        'error' => 'Ошибка',
+        'critical' => 'Критично',
+    ],
+    'event_kind' => [
+        'login' => 'Вход',
+        'session' => 'Сессии',
+        'sending' => 'Отправка',
+        'flood' => 'Флуд-лимиты',
+        'worker' => 'Воркеры',
+        'queue' => 'Очередь',
+        'api' => 'API',
+        'system' => 'Система',
+    ],
+];

@@ -1,0 +1,59 @@
+<?php
+
+return [
+    'role' => [
+        'user' => 'Foydalanuvchi',
+        'superadmin' => 'Superadmin',
+    ],
+    'account_status' => [
+        'requesting_code' => 'Kod so‘ralmoqda',
+        'code_sent' => 'Kod kutilmoqda',
+        'verifying' => 'Tekshirilmoqda',
+        'need_password' => '2FA parol kerak',
+        'code_invalid' => 'Kod noto‘g‘ri',
+        'password_invalid' => 'Parol noto‘g‘ri',
+        'failed' => 'Kirishda xato',
+        'authorized' => 'Ulangan',
+        'revoked' => 'Sessiya yopilgan',
+        'logging_out' => 'Chiqilmoqda…',
+        'logged_out' => 'Uzilgan',
+    ],
+    'group_status' => [
+        'pending' => 'Navbatda',
+        'sending' => 'Yuborilmoqda',
+        'completed' => 'Yakunlangan',
+        'failed' => 'Yetkazilmadi',
+        'canceled' => 'To‘xtatilgan',
+        'sent' => 'Yuborilgan',
+        'processing' => 'Yuborilgan (eski)',
+        'infinity_pending' => 'Takroriy (eski)',
+    ],
+    'loop_status' => [
+        'active' => 'Takrorlanmoqda',
+        'stopped' => 'To‘xtatilgan',
+        'finished' => 'Yakunlangan',
+    ],
+    'message_status' => [
+        'pending' => 'Navbatda',
+        'sending' => 'Yuborilmoqda',
+        'sent' => 'Yetkazildi',
+        'failed' => 'Xato',
+        'canceled' => 'Bekor qilindi',
+    ],
+    'event_level' => [
+        'info' => 'Ma’lumot',
+        'warning' => 'Diqqat',
+        'error' => 'Xato',
+        'critical' => 'Jiddiy',
+    ],
+    'event_kind' => [
+        'login' => 'Kirish',
+        'session' => 'Sessiyalar',
+        'sending' => 'Yuborish',
+        'flood' => 'Flood cheklovlar',
+        'worker' => 'Workerlar',
+        'queue' => 'Navbat',
+        'api' => 'API',
+        'system' => 'Tizim',
+    ],
+];

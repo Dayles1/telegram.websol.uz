@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'dashboard' => 'Главная',
+    'sends' => 'Рассылки',
+    'catalogs' => 'Каталоги',
+    'phones' => 'Аккаунты',
+    'monitoring' => 'Мониторинг',
+    'users' => 'Пользователи',
+    'send' => 'Отправить',
+    'profile' => 'Профиль',
+    'logout' => 'Выйти',
+    'overview' => 'Обзор',
+    'events' => 'События и ошибки',
+    'analytics' => 'Аналитика',
+    'api' => 'API',
+    'logs' => 'Логи',
+    'settings' => 'Настройки',
+    'jump' => 'Перейти…',
+    'jump_placeholder' => 'Страница или действие…',
+    'pages' => 'Страницы',
+    'actions' => 'Действия',
+    'new_catalog' => 'Новый каталог',
+    'connect_phone' => 'Подключить аккаунт',
+    'language' => 'Язык',
+    'theme' => 'Тема',
+];

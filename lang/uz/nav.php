@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'dashboard' => 'Bosh sahifa',
+    'sends' => 'Yuborishlar',
+    'catalogs' => 'Kataloglar',
+    'phones' => 'Akkauntlar',
+    'monitoring' => 'Monitoring',
+    'users' => 'Foydalanuvchilar',
+    'send' => 'Yuborish',
+    'profile' => 'Profil',
+    'logout' => 'Chiqish',
+    'overview' => 'Umumiy holat',
+    'events' => 'Hodisalar va xatolar',
+    'analytics' => 'Tahlil',
+    'api' => 'API',
+    'logs' => 'Loglar',
+    'settings' => 'Sozlamalar',
+    'jump' => 'O‘tish…',
+    'jump_placeholder' => 'Sahifa yoki amal…',
+    'pages' => 'Sahifalar',
+    'actions' => 'Amallar',
+    'new_catalog' => 'Yangi katalog',
+    'connect_phone' => 'Akkaunt ulash',
+    'language' => 'Til',
+    'theme' => 'Mavzu',
+];
