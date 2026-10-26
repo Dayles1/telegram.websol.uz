@@ -155,7 +155,7 @@ Aylanani `POST /api/groups/{id}/cancel` bilan bekor qilish ham takrorlashni to'x
 | `message_too_long`, `message_empty`, `message_markup_invalid` | matndagi muammo | matnni tuzating |
 | `attachment_invalid`, `attachment_missing` | fayl qabul qilinmadi / serverda yo'q | yangi yuborish |
 | `session_revoked`, `session_missing`, `session_logged_out`, `account_banned` | akkaunt sessiyasi yopilgan | akkauntni qayta ulang |
-| `telegram_internal`, `network_error`, `worker_lost` | vaqtinchalik xato (3 urinishdan keyin) | ha |
+| `telegram_internal`, `network_error`, `worker_lost`, `session_busy` | vaqtinchalik xato (3 urinishdan keyin) | ha |
 | `expired` | 24 soat ichida yuborilmadi (pauza, limit) | ha |
 | `unknown_error` | boshqa | — |
 

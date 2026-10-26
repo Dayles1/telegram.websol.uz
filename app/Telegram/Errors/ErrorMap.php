@@ -35,6 +35,7 @@ final class ErrorMap
         'SESSION_EXPIRED' => ['session_revoked', ErrorKind::DeadSession],
         'SESSION_NOT_AUTHORIZED' => ['session_revoked', ErrorKind::DeadSession],
         'SESSION_MISSING' => ['session_missing', ErrorKind::DeadSession],
+        'SESSION_BUSY' => ['session_busy', ErrorKind::Transient],
         'PHONE_CODE_INVALID' => ['code_invalid', ErrorKind::CodeInvalid],
         'PHONE_CODE_EMPTY' => ['code_invalid', ErrorKind::CodeInvalid],
         'PHONE_CODE_EXPIRED' => ['code_expired', ErrorKind::Unknown],

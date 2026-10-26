@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Accounts\AccountLogin;
 use App\Enums\AccountStatus;
 use App\Models\UserPhone;
+use App\Telegram\ProcessLock;
+use App\Telegram\SessionStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /** Phone -> code -> (2FA password) -> authorized, through the web endpoints and the queued jobs. */
@@ -70,6 +73,29 @@ class AccountLoginTest extends TestCase
 
         $this->actingAs($user)->postJson(route('phones.code', $account), ['code' => '12345']);
         $this->assertSame(AccountStatus::Authorized, $account->refresh()->status);
+    }
+
+    public function test_a_second_login_never_deletes_a_session_another_process_still_holds(): void
+    {
+        config(['telegram.session_busy_wait' => 0]);
+        $user = $this->user();
+        $path = app(SessionStore::class)->pathFor('+998901112299', $user->id);
+        File::put($path, 'session');
+        $previous = ProcessLock::for('session-'.sha1($path)); // the first click's process, still saving on exit
+        $this->assertTrue($previous->acquire());
+
+        try {
+            $this->actingAs($user)->postJson(route('phones.store'), ['phone' => '+998901112299'])->assertCreated();
+
+            $account = UserPhone::query()->sole();
+            $this->assertSame(AccountStatus::Failed, $account->status);
+            $this->assertSame('session_busy', $account->last_error);
+            $this->assertFileExists($path);
+            $this->assertSame([], $this->telegram->calls);
+        } finally {
+            $previous->release();
+            File::delete($path);
+        }
     }
 
     public function test_a_code_is_refused_when_none_is_expected(): void

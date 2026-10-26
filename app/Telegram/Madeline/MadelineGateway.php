@@ -7,12 +7,16 @@ namespace App\Telegram\Madeline;
 use App\Telegram\Contracts\TelegramGateway;
 use App\Telegram\Contracts\TelegramSession;
 use App\Telegram\Profile;
+use App\Telegram\SessionStore;
 use danog\MadelineProto\API;
 use RuntimeException;
 
 final class MadelineGateway implements TelegramGateway
 {
-    public function __construct(private readonly SettingsFactory $settings) {}
+    public function __construct(
+        private readonly SettingsFactory $settings,
+        private readonly SessionStore $sessions,
+    ) {}
 
     public function requestCode(string $sessionPath, string $phone): void
     {
@@ -70,6 +74,9 @@ final class MadelineGateway implements TelegramGateway
 
     private function api(string $sessionPath): API
     {
+        if (! $this->sessions->holdUntilExit($sessionPath)) {
+            throw new RuntimeException('SESSION_BUSY');
+        }
         $this->endWorkerAfterJob();
 
         return new API($sessionPath, $this->settings->make());

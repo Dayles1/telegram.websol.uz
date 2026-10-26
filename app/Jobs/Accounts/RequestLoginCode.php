@@ -7,6 +7,7 @@ namespace App\Jobs\Accounts;
 use App\Enums\AccountStatus;
 use App\Telegram\Contracts\TelegramGateway;
 use App\Telegram\SessionStore;
+use RuntimeException;
 use Throwable;
 
 final class RequestLoginCode extends AccountJob
@@ -15,6 +16,13 @@ final class RequestLoginCode extends AccountJob
     {
         $account = $this->account();
         if ($account === null || $account->status !== AccountStatus::RequestingCode) {
+            return;
+        }
+
+        // A second click on "login" while the previous process still saves the session: wait for it first.
+        if (! $sessions->holdUntilExit($account->session_path)) {
+            $this->fail($account, new RuntimeException('SESSION_BUSY'), 'request_code');
+
             return;
         }
 

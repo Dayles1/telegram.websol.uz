@@ -40,6 +40,12 @@ return [
     'login_stale_after' => 180,
 
     /*
+    | A session another process still has open (it may be saving it on exit):
+    | how long a job waits for it before giving up with "session_busy".
+    */
+    'session_busy_wait' => 30,
+
+    /*
     | Defaults for the values a superadmin can change on the settings page
     | (app_settings overrides them, see App\Settings\Settings).
     */

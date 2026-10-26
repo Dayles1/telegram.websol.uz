@@ -30,6 +30,7 @@ return [
         'session_missing' => 'Sessiya fayli topilmadi',
         'session_logged_out' => 'Akkaunt yuborishdan oldin uzildi',
         'session_start_failed' => 'Sessiya ishga tushmadi',
+        'session_busy' => 'Sessiya boshqa jarayonda band, bir daqiqadan keyin qayta urinib ko‘ring',
         'code_invalid' => 'Kod noto‘g‘ri',
         'code_expired' => 'Kod muddati tugadi, yangisini so‘rang',
         'password_invalid' => '2FA parol noto‘g‘ri',

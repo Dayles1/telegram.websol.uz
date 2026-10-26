@@ -17,6 +17,32 @@ use Illuminate\Support\Str;
  */
 final class SessionStore
 {
+    /** @var array<string, ProcessLock> session path => lock this process holds until it exits */
+    private static array $held = [];
+
+    /**
+     * Claims a session for the rest of this process, waiting up to
+     * telegram.session_busy_wait seconds for another process to let it go.
+     *
+     * Never released by hand: MadelineProto saves the session while the process
+     * shuts down, and the OS drops the lock only after that. So a second login
+     * (a double click) can't delete a session another process is still writing.
+     */
+    public function holdUntilExit(string $path): bool
+    {
+        if (isset(self::$held[$path])) {
+            return true;
+        }
+
+        $lock = ProcessLock::for('session-'.sha1($path));
+        if (! $lock->acquireWithin((int) config('telegram.session_busy_wait'))) {
+            return false;
+        }
+        self::$held[$path] = $lock;
+
+        return true;
+    }
+
     public function pathFor(string $phone, int $userId): string
     {
         return $this->root().DIRECTORY_SEPARATOR.Phone::digits($phone)."_user_{$userId}.madeline";

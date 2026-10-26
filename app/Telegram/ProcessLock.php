@@ -48,6 +48,20 @@ final class ProcessLock
         return true;
     }
 
+    /** Tries again every quarter second for up to $seconds. */
+    public function acquireWithin(int $seconds): bool
+    {
+        $until = microtime(true) + $seconds;
+        while (! $this->acquire()) {
+            if (microtime(true) >= $until) {
+                return false;
+            }
+            usleep(250_000);
+        }
+
+        return true;
+    }
+
     /** True when some process holds the lock right now. */
     public function isHeld(): bool
     {
