@@ -85,7 +85,9 @@ Cron для этого проекта не нужен. Если в `crontab -l` 
 
 - Мониторинг → Обзор: «Отправка» (последняя минутная проверка меньше 3 минут назад) и «Очередь» — зелёные.
 - `supervisorctl status`: только `telegram-websol:telegram-websol_00..03` в `RUNNING`
-  (раз в час каждый процесс перезапускается сам: `--max-time=3600`).
+  (раз в час каждый процесс перезапускается сам: `--max-time=3600`; процесс, который открывал
+  сессию Telegram, завершается сразу после этой задачи — поэтому в конфиге нужен `startsecs=0`,
+  иначе supervisor после частых перезапусков переведёт программу в `FATAL`).
 - Команда воркера: `php artisan queue:work --queue=telegramWebsol --sleep=3 --tries=3 --timeout=370 --max-time=3600`.
 - Аккаунты: после миграции `2026_10_27_000008` **все** телефоны в статусе «Отключён» (так задумано,
   см. ниже). Подключить заново один свой → «Подключён»; нажать «Проверить» — через пару секунд
@@ -130,6 +132,16 @@ crontab -e                                       # удалить строку s
 
 Проверить: `supervisorctl status | grep -i websol` — одна программа `telegram-websol`;
 `SELECT queue, COUNT(*) FROM jobs GROUP BY queue;` — нет `telegramWebsol-sending`.
+
+## Если сообщения стоят в `pending`
+
+1. `php artisan queue:failed` — упала ли `MinuteTick` (минутная проверка); текст ошибки:
+   `php artisan tinker --execute="echo DB::table('failed_jobs')->where('uuid','<uuid>')->value('exception');"`.
+2. `supervisorctl status` — воркеры в `RUNNING`; после правки кода — `supervisorctl restart 'telegram-websol:*'`
+   (воркер читает код один раз при старте).
+3. Аккаунт отправителя: статус «Подключён», нет активной паузы (flood), не исчерпан дневной лимит.
+4. Зависший unique-лок задачи аккаунта минутная проверка снимает сама, если задачи этого аккаунта
+   нет в таблице `jobs`.
 
 ## 3. Откат
 
