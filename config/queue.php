@@ -39,8 +39,8 @@ return [
             'driver' => 'database',
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
-            'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            'queue' => env('DB_QUEUE', 'telegramWebsol'), // same as telegram.queue: one name per project on the server
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 400), // longer than the longest job timeout (send job: 360s), or a running job is started twice
             'after_commit' => false,
         ],
 
@@ -67,7 +67,7 @@ return [
         'redis' => [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-            'queue' => env('REDIS_QUEUE', 'default'),
+            'queue' => env('REDIS_QUEUE', 'telegramWebsol'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
             'after_commit' => false,

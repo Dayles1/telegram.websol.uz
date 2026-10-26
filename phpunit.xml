@@ -23,8 +23,12 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Tests run the real migrations on MySQL, like production. -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="telegram_websol_test"/>
+        <env name="TELEGRAM_ALERT_BOT_TOKEN" value=""/>
+        <env name="TELEGRAM_ALERT_CHAT_ID" value=""/>
+        <env name="APP_LOCALE" value="ru"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
