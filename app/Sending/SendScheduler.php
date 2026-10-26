@@ -17,6 +17,7 @@ use App\Models\SendLoop;
 use App\Models\TelegramMessage;
 use App\Models\UserPhone;
 use App\Monitoring\EventRecorder;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -88,11 +89,43 @@ final class SendScheduler
     public function queueDue(): int
     {
         $accounts = $this->dueAccounts();
+        $queued = $this->accountsInQueue();
         foreach ($accounts as $accountId) {
+            if ($queued !== null && ! isset($queued[$accountId])) {
+                // No job of this account is waiting or running, so a unique lock left behind
+                // (a dispatch that threw after taking it) must not keep its messages waiting an hour.
+                (new UniqueLock(Cache::driver()))->release(new SendAccountMessages($accountId));
+            }
             SendAccountMessages::dispatch($accountId);
         }
 
         return count($accounts);
+    }
+
+    /**
+     * Accounts with a send job in the jobs table (waiting, delayed or running);
+     * null when the queue is not the database one and the table says nothing.
+     *
+     * @return array<int, true>|null
+     */
+    private function accountsInQueue(): ?array
+    {
+        if (config('queue.default') !== 'database') {
+            return null;
+        }
+
+        $accounts = [];
+        $payloads = DB::table((string) config('queue.connections.database.table', 'jobs'))
+            ->where('payload', 'like', '%SendAccountMessages%')
+            ->pluck('payload');
+        foreach ($payloads as $payload) {
+            $command = unserialize(json_decode($payload, true)['data']['command'] ?? '', ['allowed_classes' => [SendAccountMessages::class]]);
+            if ($command instanceof SendAccountMessages) {
+                $accounts[$command->accountId] = true;
+            }
+        }
+
+        return $accounts;
     }
 
     public function startDueRounds(): int

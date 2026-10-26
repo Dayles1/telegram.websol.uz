@@ -271,6 +271,23 @@ class SendQueueTest extends TestCase
         $this->assertSame(1, app(SendScheduler::class)->tick()['queued']);
     }
 
+    public function test_the_tick_frees_a_unique_lock_no_queued_job_holds(): void
+    {
+        config(['queue.default' => 'database']);
+        $this->api(['peer' => '@alice', 'message' => 'hi'])->assertOk();
+        Bus::assertDispatchedTimes(SendAccountMessages::class, 1);
+
+        // the job is in the table: the tick does not queue a second one
+        Queue::connection('database')->push(new SendAccountMessages($this->phone->id));
+        app(SendScheduler::class)->tick();
+        Bus::assertDispatchedTimes(SendAccountMessages::class, 1);
+
+        // a dispatch that threw left the lock without a job: the tick takes it back
+        DB::table('jobs')->delete();
+        app(SendScheduler::class)->tick();
+        Bus::assertDispatchedTimes(SendAccountMessages::class, 2);
+    }
+
     public function test_a_send_waits_while_every_send_slot_is_taken(): void
     {
         config(['telegram.worker.send_slots' => 1]);
