@@ -39,7 +39,7 @@ return [
             'driver' => 'database',
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
-            'queue' => env('DB_QUEUE', 'telegramWebsol'), // same as telegram.queue: one name per project on the server
+            'queue' => env('DB_QUEUE', 'telegramWebsol'), // = config('telegram.queue'): one queue, one name per project on the server
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 400), // longer than the longest job timeout (send job: 360s), or a running job is started twice
             'after_commit' => false,
         ],
@@ -47,7 +47,7 @@ return [
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
-            'queue' => env('BEANSTALKD_QUEUE', 'default'),
+            'queue' => env('BEANSTALKD_QUEUE', env('DB_QUEUE', 'telegramWebsol')),
             'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
             'block_for' => 0,
             'after_commit' => false,
@@ -58,7 +58,7 @@ return [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'prefix' => env('SQS_PREFIX', 'https://sqs.us-east-1.amazonaws.com/your-account-id'),
-            'queue' => env('SQS_QUEUE', 'default'),
+            'queue' => env('SQS_QUEUE', env('DB_QUEUE', 'telegramWebsol')),
             'suffix' => env('SQS_SUFFIX'),
             'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
             'after_commit' => false,
@@ -67,7 +67,7 @@ return [
         'redis' => [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-            'queue' => env('REDIS_QUEUE', 'telegramWebsol'),
+            'queue' => env('REDIS_QUEUE', env('DB_QUEUE', 'telegramWebsol')),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
             'after_commit' => false,

@@ -28,7 +28,7 @@ use Throwable;
 
 /**
  * Sends what is due for ONE account, in one process, for a limited time.
- * Runs inside the SendAccountMessages queue job (or telegram:send-worker by hand).
+ * Runs inside the SendAccountMessages queue job.
  *
  * Each row is claimed with a conditional UPDATE (pending -> sending) before it is
  * sent, so a row can't go out twice even if two workers ever raced. The process

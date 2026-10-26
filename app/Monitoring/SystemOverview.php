@@ -6,8 +6,10 @@ namespace App\Monitoring;
 
 use App\Enums\AccountStatus;
 use App\Enums\GroupStatus;
+use App\Enums\LoopStatus;
 use App\Enums\MessageStatus;
 use App\Models\MessageGroup;
+use App\Models\SendLoop;
 use App\Models\SystemEvent;
 use App\Models\TelegramMessage;
 use App\Models\UserPhone;
@@ -46,7 +48,7 @@ final class SystemOverview
     /** @return array<string, mixed> */
     private function processes(): array
     {
-        // Sending runs on the queue; telegram:tick (cron, every minute) is its safety net.
+        // Sending runs on the queue; the minute tick (MinuteTick, queued by the worker) is its safety net.
         $tick = Cache::get(SendScheduler::TICK_KEY);
         $jobs = $this->scheduler->jobs();
 
@@ -91,6 +93,7 @@ final class SystemOverview
             'queued_messages' => TelegramMessage::query()->where('status', MessageStatus::Pending)->count(),
             'in_flight' => TelegramMessage::query()->where('status', MessageStatus::Sending)->count(),
             'active_groups' => MessageGroup::query()->whereIn('status', GroupStatus::activeValues())->count(),
+            'active_loops' => SendLoop::query()->where('status', LoopStatus::Active)->count(),
         ];
     }
 

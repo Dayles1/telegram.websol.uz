@@ -141,7 +141,7 @@ final class MassSend
 
     /**
      * The next round of a repeating send, when it is due. Safe to call any time
-     * and more than once (the queued job and telegram:tick both do): it starts a
+     * and more than once (the queued job and the minute tick both do): it starts a
      * round only when the loop is active, due, and has no round running.
      */
     public function startRound(int $loopId): ?MessageGroup

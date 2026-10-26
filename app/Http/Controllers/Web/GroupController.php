@@ -44,7 +44,23 @@ final class GroupController extends Controller
         return response()->json([
             'groups' => GroupResource::collection($groups->getCollection()),
             'meta' => ['current_page' => $groups->currentPage(), 'last_page' => $groups->lastPage(), 'total' => $groups->total()],
+            // for "stop everything": counted over all pages, only the account filter applies
+            'active' => $list->activeSummary($request->user(), isset($filters['phone_id']) ? (int) $filters['phone_id'] : null),
         ]);
+    }
+
+    /** "Stop everything" the user may see, or one account's when phone_id is given. */
+    public function cancelAll(Request $request, GroupProgress $progress): JsonResponse
+    {
+        $data = $request->validate(['phone_id' => ['nullable', 'integer']]);
+        $result = $progress->cancelAll($request->user(), isset($data['phone_id']) ? (int) $data['phone_id'] : null);
+
+        return response()->json([
+            'ok' => true,
+            'message' => $result['groups'] + $result['loops'] + $result['tasks'] > 0
+                ? __('sends.stopped_all', ['groups' => $result['groups'], 'messages' => $result['messages'] + $result['tasks']])
+                : __('sends.nothing_to_stop'),
+        ] + $result);
     }
 
     public function show(MessageGroup $group): View

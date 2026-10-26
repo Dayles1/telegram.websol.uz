@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Sending\SendWorker;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,11 +19,11 @@ use Illuminate\Support\Facades\Cache;
  * At most one of these exists per account (ShouldBeUnique) and the worker holds
  * the account's ProcessLock, so a session is never opened twice. When time is up
  * with messages left, the job puts itself back on the queue; a failing account
- * comes back with growing delays. telegram:tick queues it for every account with
- * due messages each minute, so nothing waits forever if a job is lost.
+ * comes back with growing delays. The minute tick queues it for every account with
+ * due messages, so nothing waits forever if a job is lost.
  *
- * Production runs the sending queue with --max-jobs=1: every job gets a fresh
- * process and MadelineProto state never leaks from one account to another.
+ * It shares the one queue with logins and checks, so at most worker.send_slots of
+ * these run at once and the rest of the worker processes stay free for them.
  */
 final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 {
@@ -41,7 +42,7 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 
     public function __construct(public readonly int $accountId)
     {
-        $this->onQueue(config('telegram.send_queue'));
+        $this->onQueue(config('telegram.queue'));
         $this->timeout = (int) config('telegram.worker.max_runtime') + 120;
     }
 
@@ -52,11 +53,19 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 
     public function handle(SendWorker $worker): void
     {
+        $slot = $this->takeSlot();
+        if ($slot === null) {
+            $this->release(15);
+
+            return;
+        }
+
         $previous = $this->stopOnSigterm($worker);
 
         try {
             $outcome = $worker->run($this->accountId, (int) config('telegram.worker.max_runtime'));
         } finally {
+            $slot->release();
             if ($previous !== null) {
                 pcntl_signal(SIGTERM, $previous);
             }
@@ -64,7 +73,7 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 
         match ($outcome) {
             SendWorker::MORE => $this->release($worker->resumeIn()),
-            SendWorker::RETRY => $this->release($this->backoff()),
+            SendWorker::RETRY => $this->release($this->retryDelay()),
             SendWorker::BUSY => $this->release(30),
             default => Cache::forget(self::failuresKey($this->accountId)),
         };
@@ -76,8 +85,24 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
         return "telegram:send-failures:{$accountId}";
     }
 
-    /** 10 s, 30 s, 1 min ... for an account whose sends keep failing. */
-    private function backoff(): int
+    /** One of worker.send_slots; a slot of a killed process frees itself after the job's timeout. */
+    private function takeSlot(): ?Lock
+    {
+        for ($i = 0; $i < max(1, (int) config('telegram.worker.send_slots')); $i++) {
+            $lock = Cache::lock("telegram:send-slot:{$i}", $this->timeout);
+            if ($lock->get()) {
+                return $lock;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 10 s, 30 s, 1 min ... for an account whose sends keep failing.
+     * Not named backoff(): Laravel calls a job's backoff() on every dispatch.
+     */
+    private function retryDelay(): int
     {
         $key = self::failuresKey($this->accountId);
         Cache::add($key, 0, 3600);

@@ -19,6 +19,15 @@ return [
     'paused_until' => 'Пауза Telegram до',
     'sent_today' => 'Сегодня',
     'mine' => 'Мой',
+    'scope_all' => 'Все',
+    'scope_mine' => 'Мои',
+    'search_accounts' => 'Поиск по имени, номеру, username или владельцу',
+    'accounts_ready' => 'готовы :ready из :total',
+    'show_not_ready' => 'Показать неготовые (:n)',
+    'no_accounts_found' => 'По этому запросу готовых аккаунтов нет',
+    'no_ready_accounts' => 'Нет аккаунтов, готовых к отправке. Подключите их заново на странице аккаунтов.',
+    'change_account' => 'Изменить',
+    'enter_to_pick' => 'Enter — выбрать первый',
 
     // catalogs
     'no_catalogs_title' => 'Каталогов пока нет',

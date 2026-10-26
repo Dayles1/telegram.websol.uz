@@ -18,7 +18,7 @@ const isFileDrag = (event) => Array.from(event.dataTransfer?.types ?? []).includ
  *   limits  { text, caption, repeatMinutes, rounds, fileBytes, photoBytes, photoTypes }
  *   maxFile the file limit as text ("50 MB")
  */
-export default function sendPage({ phones, catalogs, selectedPhone, urls, t, units, limits, maxFile }) {
+export default function sendPage({ phones, catalogs, selectedPhone, admin, urls, t, units, limits, maxFile }) {
     const sendable = phones.filter((p) => p.can.send);
     const preselected = phones.find((p) => p.id === selectedPhone && p.can.send) ?? (sendable.length === 1 ? sendable[0] : null);
 
@@ -29,8 +29,13 @@ export default function sendPage({ phones, catalogs, selectedPhone, urls, t, uni
         limits,
         t,
         phoneId: preselected?.id ?? null,
+        picking: preselected === null,
+        phoneSearch: '',
+        phoneScope: 'all', // superadmin: every account or only their own
+        showNotReady: false,
         selected: [],
         search: '',
+        catalogScope: 'all',
         message: '',
         preview: { unique_peers: 0, total_peers: 0, cooldowns: {}, sent_today: null, daily_limit: 0 },
         previewLoading: false,
@@ -72,23 +77,91 @@ export default function sendPage({ phones, catalogs, selectedPhone, urls, t, uni
         choose(phone) {
             if (!phone.can.send) return;
             this.phoneId = phone.id;
+            this.picking = false;
+            this.phoneSearch = '';
             delete this.errors.phone_id;
         },
 
-        phoneCardClass(phone) {
-            if (!phone.can.send) return 'cursor-not-allowed border-[var(--line)] opacity-55';
-            return this.phoneId === phone.id
-                ? 'border-brand-500 bg-brand-50/60 ring-1 ring-brand-500 dark:bg-brand-500/10'
-                : 'cursor-pointer border-[var(--line)] hover:border-gray-400 dark:hover:border-gray-600';
+        openPicker() {
+            this.picking = true;
+            this.$nextTick(() => this.$refs.phoneSearch?.focus());
+        },
+
+        closePicker() {
+            if (!this.phone) return;
+            this.picking = false;
+            this.phoneSearch = '';
+        },
+
+        /** Enter in the search box: the first account that can send. */
+        pickFirst() {
+            const first = this.matchedPhones.find((p) => p.can.send);
+            if (first) this.choose(first);
+        },
+
+        initial(phone) {
+            return (phone?.name || '?').replace('@', '').slice(0, 1).toUpperCase();
+        },
+
+        get readyCount() {
+            return sendable.length;
+        },
+
+        scopeCount(scope) {
+            return scope === 'mine' ? this.phones.filter((p) => p.is_mine).length : this.phones.length;
+        },
+
+        get scopedPhones() {
+            return admin && this.phoneScope === 'mine' ? this.phones.filter((p) => p.is_mine) : this.phones;
+        },
+
+        /** Hidden until asked for: accounts that can't send (logged out, revoked ...). */
+        get notReadyCount() {
+            return this.scopedPhones.filter((p) => !p.can.send).length;
+        },
+
+        /** By name, number (any formatting), username or owner. */
+        get matchedPhones() {
+            const q = this.phoneSearch.trim().toLowerCase();
+            const digits = q.replace(/\D/g, '');
+
+            return this.scopedPhones.filter((p) => {
+                if (!p.can.send && !this.showNotReady) return false;
+                if (!q) return true;
+                if (`${p.name} ${p.phone} ${p.username ?? ''} ${p.owner?.name ?? ''}`.toLowerCase().includes(q)) return true;
+
+                return digits.length >= 3 && p.phone.replace(/\D/g, '').includes(digits);
+            });
+        },
+
+        /** The superadmin sees accounts grouped by owner, their own first; a user sees one plain list. */
+        get phoneGroups() {
+            if (!admin) return [{ key: 'all', label: null, phones: this.matchedPhones }];
+
+            const groups = new Map();
+            for (const p of this.matchedPhones) {
+                const key = p.is_mine ? 'mine' : `u${p.owner?.id ?? 0}`;
+                if (!groups.has(key)) groups.set(key, { key, label: p.is_mine ? t.scope_mine : (p.owner?.name ?? '—'), mine: p.is_mine, phones: [] });
+                groups.get(key).phones.push(p);
+            }
+
+            return [...groups.values()].sort((a, b) => b.mine - a.mine || a.label.localeCompare(b.label));
+        },
+
+        phoneRowClass(phone) {
+            if (!phone.can.send) return 'cursor-not-allowed opacity-55';
+
+            return this.phoneId === phone.id ? 'cursor-pointer bg-brand-50/60 dark:bg-brand-500/10' : 'cursor-pointer hover:bg-[var(--surface-2)]';
         },
 
         // ---------------------------------------------------------- catalogs
 
         get filtered() {
             const q = this.search.trim().toLowerCase();
-            if (!q) return this.catalogs;
+            const scoped = admin && this.catalogScope === 'mine' ? this.catalogs.filter((c) => c.is_mine) : this.catalogs;
+            if (!q) return scoped;
 
-            return this.catalogs.filter((c) => `${c.title} ${c.owner?.name ?? ''}`.toLowerCase().includes(q));
+            return scoped.filter((c) => `${c.title} ${c.owner?.name ?? ''}`.toLowerCase().includes(q));
         },
 
         isSelected(catalog) {

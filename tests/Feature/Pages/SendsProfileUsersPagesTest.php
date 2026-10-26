@@ -7,6 +7,7 @@ use App\Enums\MessageStatus;
 use App\Enums\Role;
 use App\Models\Catalog;
 use App\Models\MessageGroup;
+use App\Models\MessageTask;
 use App\Models\SendLoop;
 use App\Models\User;
 use App\Models\UserPhone;
@@ -159,6 +160,70 @@ class SendsProfileUsersPagesTest extends TestCase
 
         $this->postJson(route('sends.cancel', $group))->assertStatus(409);
         $this->getJson(route('sends.progress', $group))->assertOk()->assertJsonPath('group.can.cancel', false);
+    }
+
+    public function test_stop_all_stops_only_what_the_user_may_see(): void
+    {
+        $group = $this->send();
+        $this->actingAs($this->owner)->postJson(route('send.store'), [
+            'phone_id' => $this->phone->id, 'catalog_ids' => [$this->catalog->id], 'message' => 'Weekly', 'repeat_every_minutes' => 60,
+        ])->assertCreated();
+        $round = MessageGroup::query()->latest('id')->firstOrFail();
+        $this->actingAs($this->owner, 'sanctum')->postJson('/api/telegram/single-messages', [
+            'sender_phone_id' => $this->phone->id, 'target_tg_id' => '12345', 'message' => 'hi',
+        ])->assertStatus(202);
+
+        $stranger = $this->user();
+        $strangerPhone = $this->phoneOf($stranger);
+        $this->actingAs($stranger)->postJson(route('send.store'), [
+            'phone_id' => $strangerPhone->id,
+            'catalog_ids' => [Catalog::factory()->for($stranger)->peers(['@x'])->create()->id],
+            'message' => 'not yours',
+        ])->assertCreated();
+        $foreign = MessageGroup::query()->latest('id')->firstOrFail();
+
+        $this->actingAs($this->owner)->getJson(route('sends.data'))->assertOk()
+            ->assertJsonPath('active.groups', 2)
+            ->assertJsonPath('active.messages', 6)
+            ->assertJsonPath('active.loops', 1);
+
+        $this->postJson(route('sends.cancel-all'))
+            ->assertOk()
+            ->assertJsonPath('groups', 2)
+            ->assertJsonPath('messages', 6)
+            ->assertJsonPath('loops', 1)
+            ->assertJsonPath('tasks', 1)
+            ->assertJsonPath('message', __('sends.stopped_all', ['groups' => 2, 'messages' => 7]));
+
+        $this->assertSame(GroupStatus::Canceled, $group->refresh()->status);
+        $this->assertSame(GroupStatus::Canceled, $round->refresh()->status);
+        $this->assertFalse(SendLoop::query()->findOrFail($round->send_loop_id)->isActive());
+        $this->assertSame('CANCELED', MessageTask::query()->firstOrFail()->error_code);
+        $this->assertTrue($foreign->refresh()->status->isActive(), 'another user\'s send keeps going');
+
+        $this->postJson(route('sends.cancel-all'))->assertOk()->assertJsonPath('message', __('sends.nothing_to_stop'));
+        $this->getJson(route('sends.data'))->assertJsonPath('active.groups', 0);
+    }
+
+    public function test_a_superadmin_stops_everything_or_one_account(): void
+    {
+        $mine = $this->send();
+        $stranger = $this->user();
+        $other = $this->phoneOf($stranger);
+        $this->actingAs($stranger)->postJson(route('send.store'), [
+            'phone_id' => $other->id,
+            'catalog_ids' => [Catalog::factory()->for($stranger)->peers(['@x'])->create()->id],
+            'message' => 'theirs',
+        ])->assertCreated();
+        $group = MessageGroup::query()->latest('id')->firstOrFail();
+
+        $this->actingAs($this->superadmin())->postJson(route('sends.cancel-all'), ['phone_id' => $other->id])
+            ->assertOk()->assertJsonPath('groups', 1);
+        $this->assertTrue($mine->refresh()->status->isActive(), 'only the chosen account');
+        $this->assertSame(GroupStatus::Canceled, $group->refresh()->status);
+
+        $this->postJson(route('sends.cancel-all'))->assertOk()->assertJsonPath('groups', 1);
+        $this->assertSame(GroupStatus::Canceled, $mine->refresh()->status);
     }
 
     public function test_retry_creates_a_new_send_for_the_failed_peers(): void

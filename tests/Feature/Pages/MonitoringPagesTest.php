@@ -143,10 +143,10 @@ class MonitoringPagesTest extends TestCase
             ->assertSee('monitoringPage', false)
             ->assertSee(__('monitoring.overview.title'))
             ->assertSee(__('monitoring.overview.sending'))
-            ->assertSee('php artisan schedule:run')
-            ->assertSee('php artisan queue:work --queue='.config('telegram.queue'))
-            ->assertSee('php artisan queue:work --queue='.config('telegram.send_queue').' --max-jobs=1')
-            ->assertSee(__('monitoring.overview.no_workers_text', ['queue' => config('telegram.send_queue')]))
+            ->assertSee('php artisan queue:work --queue=telegramWebsol')
+            ->assertDontSee('schedule:run')
+            ->assertDontSee('telegramWebsol-sending')
+            ->assertSee(__('monitoring.overview.no_workers_text', ['queue' => 'telegramWebsol']))
             ->assertDontSee('--queue=telegram,default')
             ->assertDontSee('telegram:supervisor');
     }
@@ -249,7 +249,7 @@ class MonitoringPagesTest extends TestCase
 
         $this->get(route('monitoring.settings'))->assertOk()->assertSee('value="250"', false)
             ->assertDontSee('max_parallel_workers')
-            ->assertSee(__('settings.parallel_hint', ['queue' => config('telegram.send_queue')]));
+            ->assertSee(__('settings.parallel_hint', ['slots' => 3, 'processes' => 4]));
 
         $this->from(route('monitoring.settings'))
             ->put(route('monitoring.settings.update'), ['send_delay_min' => 10, 'send_delay_max' => 5] + $valid)

@@ -72,7 +72,7 @@ return [
         'messages' => 'xabar',
     ],
 
-    'parallel_hint' => 'Bir vaqtda nechta akkaunt yuborishi serverdagi «:queue» navbat jarayonlari soniga teng (deploy/supervisor.conf).',
+    'parallel_hint' => 'Bir vaqtda :slots tagacha akkaunt yuboradi (.env dagi TELEGRAM_SEND_SLOTS). Serverdagi navbat workerida kamida :processes ta jarayon bo‘lishi kerak (deploy/supervisor.conf dagi numprocs), shunda akkauntga kirish yuborishlarni kutib qolmaydi.',
 
     'bot_configured' => 'Bot sozlangan',
     'bot_missing' => 'Bot sozlanmagan',
@@ -109,7 +109,7 @@ return [
 
     'maintenance' => [
         'title' => 'Texnik xizmat',
-        'text' => 'Minutlik tekshiruvni cron har daqiqada ishga tushiradi; tugma uni darhol bajaradi. Istalgan paytda ishga tushirish xavfsiz.',
+        'text' => 'Minutlik tekshiruvni navbat workeri har daqiqada ishga tushiradi; tugma uni darhol bajaradi. Istalgan paytda ishga tushirish xavfsiz.',
         'items' => [
             'yuborishda qotib qolgan xabarlar navbatga qaytariladi (yoki urinishlar limitidan keyin xato deb belgilanadi);',
             'endi yubora olmaydigan akkauntlarning xabarlari xato deb belgilanadi;',

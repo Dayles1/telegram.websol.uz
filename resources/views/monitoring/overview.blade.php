@@ -7,11 +7,8 @@
     $levelTones = collect(EventLevel::cases())->mapWithKeys(fn ($l) => [$l->value => $l->tone()]);
     // Send jobs report only an account id; the phone number makes the row readable.
     $phones = \App\Models\UserPhone::query()->pluck('phone', 'id');
-    $commands = [
-        'cron' => '* * * * * cd /var/www/telegram.websol.uz && php artisan schedule:run',
-        'queue' => 'php artisan queue:work --queue='.config('telegram.queue'),
-        'sending' => 'php artisan queue:work --queue='.config('telegram.send_queue').' --max-jobs=1',
-    ];
+    // The one worker of the project; it also queues the minute tick, so there is no cron.
+    $workerCommand = 'php artisan queue:work --queue='.config('telegram.queue').' --sleep=3 --tries=3 --timeout=370 --max-time=3600';
 @endphp
 
 <x-layouts.app :title="__('monitoring.overview.title')" section="monitoring">
@@ -20,8 +17,9 @@
             'data' => route('monitoring.data'),
             'send' => route('sends.show', '__ID__'),
             'event' => route('monitoring.events.show', '__ID__'),
+            'stopAll' => route('sends.cancel-all'),
         ]),
-        t: @js(__('monitoring.js')),
+        t: @js(__('monitoring.js') + ['stop_all' => __('sends.js') + ['action' => __('sends.stop_all')]]),
         errors: @js(__('errors.codes')),
         phones: @js($phones),
     })">
@@ -42,21 +40,14 @@
                 <x-ui.icon name="alert" class="mt-0.5 h-5 w-5 text-error-600" />
                 <div class="min-w-0 flex-1 space-y-3">
                     <p class="text-sm font-semibold">{{ __('monitoring.overview.down_title') }}</p>
-                    <div x-show="!tick.alive">
-                        <p>{{ __('monitoring.overview.tick_down') }}</p>
-                        <div class="mt-1.5 flex min-w-0 items-center gap-2">
-                            <code class="c-code c-break !bg-white/70 dark:!bg-black/30">{{ $commands['cron'] }}</code>
-                            <button type="button" class="shrink-0 hover:text-error-950 dark:hover:text-white" @click="$copy(@js($commands['cron']))" title="{{ __('monitoring.copy') }}" aria-label="{{ __('monitoring.copy') }}"><x-ui.icon name="copy" class="h-3.5 w-3.5" /></button>
-                        </div>
-                    </div>
+                    {{-- The worker queues the tick: a dead worker explains a dead tick, so only one message --}}
+                    <p x-show="!tick.alive && queue.alive">{{ __('monitoring.overview.tick_down') }}</p>
                     <div x-show="!queue.alive">
                         <p>{{ __('monitoring.overview.queue_down') }}</p>
-                        @foreach (['queue', 'sending'] as $command)
-                            <div class="mt-1.5 flex min-w-0 items-center gap-2">
-                                <code class="c-code c-break !bg-white/70 dark:!bg-black/30">{{ $commands[$command] }}</code>
-                                <button type="button" class="shrink-0 hover:text-error-950 dark:hover:text-white" @click="$copy(@js($commands[$command]))" title="{{ __('monitoring.copy') }}" aria-label="{{ __('monitoring.copy') }}"><x-ui.icon name="copy" class="h-3.5 w-3.5" /></button>
-                            </div>
-                        @endforeach
+                        <div class="mt-1.5 flex min-w-0 items-center gap-2">
+                            <code class="c-code c-break !bg-white/70 dark:!bg-black/30">{{ $workerCommand }}</code>
+                            <button type="button" class="shrink-0 hover:text-error-950 dark:hover:text-white" @click="$copy(@js($workerCommand))" title="{{ __('monitoring.copy') }}" aria-label="{{ __('monitoring.copy') }}"><x-ui.icon name="copy" class="h-3.5 w-3.5" /></button>
+                        </div>
                     </div>
                     <p class="text-xs opacity-80">{{ __('monitoring.overview.down_hint') }}</p>
                 </div>
@@ -172,7 +163,10 @@
                         <h2 class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
                             <span class="c-dot text-brand-500" :class="sending.groups.length && 'is-live'"></span> {{ __('monitoring.overview.live_sends') }}
                         </h2>
-                        <span class="c-muted text-xs tabular-nums" x-text="@js(__('monitoring.overview.queue_line')).replace(':queued', $fmt.number(sending.queued_messages)).replace(':groups', $fmt.number(sending.active_groups))"></span>
+                        <div class="flex items-center gap-3">
+                            <span class="c-muted hidden text-xs tabular-nums sm:inline" x-text="@js(__('monitoring.overview.queue_line')).replace(':queued', $fmt.number(sending.queued_messages)).replace(':groups', $fmt.number(sending.active_groups))"></span>
+                            <x-ui.button x-show="sending.active_groups || sending.active_loops" x-cloak size="sm" variant="danger-ghost" icon="stop" @click="stopAll()" ::disabled="stopping">{{ __('sends.stop_all') }}</x-ui.button>
+                        </div>
                     </div>
                     <div x-show="loading" class="space-y-3 p-4"><div class="c-skeleton h-12"></div><div class="c-skeleton h-12"></div></div>
                     <div x-show="!loading && !sending.groups.length" x-cloak>
@@ -218,7 +212,7 @@
                             <span class="c-muted text-xs tabular-nums" x-text="workers.length"></span>
                         </div>
                         <div x-show="!loading && !workers.length" x-cloak>
-                            <x-ui.empty icon="server" :title="__('monitoring.overview.no_workers')" :text="__('monitoring.overview.no_workers_text', ['queue' => config('telegram.send_queue')])" />
+                            <x-ui.empty icon="server" :title="__('monitoring.overview.no_workers')" :text="__('monitoring.overview.no_workers_text', ['queue' => config('telegram.queue')])" />
                         </div>
                         <div x-show="workers.length" class="c-scroll-x">
                             <table class="c-table">

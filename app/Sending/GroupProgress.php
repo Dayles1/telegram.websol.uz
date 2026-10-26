@@ -8,11 +8,15 @@ use App\Enums\EventKind;
 use App\Enums\GroupStatus;
 use App\Enums\LoopStatus;
 use App\Enums\MessageStatus;
+use App\Enums\TaskStatus;
 use App\Jobs\StartLoopRound;
 use App\Models\MessageGroup;
+use App\Models\MessageTask;
 use App\Models\SendLoop;
 use App\Models\TelegramMessage;
+use App\Models\User;
 use App\Monitoring\EventRecorder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -112,6 +116,40 @@ final class GroupProgress
         $this->events->info(EventKind::Sending, 'Mass send canceled', ['canceled' => $canceled], $group->user_phone_id, $group->id, $userId);
 
         return $canceled;
+    }
+
+    /**
+     * "Stop everything": every active send the user may see, the repeating sends behind
+     * them and pending API messages (only one account's, when given). Rows being sent
+     * right now still finish.
+     *
+     * @return array{groups: int, messages: int, loops: int, tasks: int}
+     */
+    public function cancelAll(User $user, ?int $phoneId = null): array
+    {
+        $loops = SendLoop::query()->visibleTo($user)->where('status', LoopStatus::Active)
+            ->when($phoneId, fn (Builder $q, int $id) => $q->where('user_phone_id', $id))
+            ->pluck('id');
+
+        $groups = MessageGroup::query()->visibleTo($user)->active()
+            ->when($phoneId, fn (Builder $q, int $id) => $q->where('user_phone_id', $id))
+            ->get();
+        $messages = $groups->sum(fn (MessageGroup $group) => $this->cancel($group, $user->id));
+
+        // repeating sends waiting for their next round have no active group to cancel
+        SendLoop::query()->whereIn('id', $loops)->where('status', LoopStatus::Active)->get()
+            ->each(fn (SendLoop $loop) => $this->stopLoop($loop, $user->id));
+
+        // MessageTask has no "canceled": a failed task with this code is what API clients understand
+        $tasks = MessageTask::query()->where('status', TaskStatus::Pending)
+            ->when(! $user->isSuperadmin(), fn (Builder $q) => $q->whereHas('sender', fn (Builder $p) => $p->where('user_id', $user->id)))
+            ->when($phoneId, fn (Builder $q, int $id) => $q->where('sender_phone_id', $id))
+            ->update(['status' => TaskStatus::Failed, 'error_code' => 'CANCELED', 'error_message' => 'Canceled by the user', 'updated_at' => now()]);
+
+        $result = ['groups' => $groups->count(), 'messages' => (int) $messages, 'loops' => $loops->count(), 'tasks' => $tasks];
+        $this->events->info(EventKind::Sending, 'All sends stopped', $result + ['phone_id' => $phoneId], $phoneId, userId: $user->id);
+
+        return $result;
     }
 
     /** Stops a repeating send: no more rounds, and the round running now is canceled. */

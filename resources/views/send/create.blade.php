@@ -34,6 +34,7 @@
                 phones: @js($phones),
                 catalogs: @js($catalogs),
                 selectedPhone: @js($selectedPhone),
+                admin: @js($isAdmin),
                 urls: @js(['preview' => route('send.preview'), 'store' => route('send.store')]),
                 t: @js(__('send')),
                 units: @js(['min' => __('catalogs.unit_min'), 'hour' => __('catalogs.unit_hour'), 'day' => __('catalogs.unit_day')]),
@@ -43,8 +44,8 @@
              class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
 
             <div class="min-w-0 space-y-5">
-                {{-- 1. Account --}}
-                <section class="c-surface">
+                {{-- 1. Account: the chosen one in a single row; the picker (search, owner groups) only while choosing --}}
+                <section class="c-surface overflow-hidden">
                     <div class="c-surface__head">
                         <h2 class="flex items-center gap-2.5 text-sm font-semibold text-gray-900 dark:text-white">
                             <span class="grid h-5 w-5 place-items-center rounded-full text-[11px] tabular-nums"
@@ -53,38 +54,105 @@
                             </span>
                             {{ __('send.step_account') }}
                         </h2>
-                        <a href="{{ route('phones.index') }}" class="c-muted text-xs hover:text-gray-900 dark:hover:text-white">{{ __('nav.phones') }} →</a>
+                        <div class="flex items-center gap-3">
+                            <span class="c-muted hidden text-xs tabular-nums sm:inline"
+                                  x-text="t.accounts_ready.replace(':ready', $fmt.number(readyCount)).replace(':total', $fmt.number(phones.length))"></span>
+                            <a href="{{ route('phones.index') }}" class="c-muted text-xs hover:text-gray-900 dark:hover:text-white">{{ __('nav.phones') }} →</a>
+                        </div>
                     </div>
-                    <div class="grid gap-2.5 p-4 sm:grid-cols-2">
-                        <template x-for="p in phones" :key="p.id">
-                            <label class="relative flex items-start gap-3 rounded-xl border p-3 transition-colors" :class="phoneCardClass(p)">
-                                <input type="radio" name="phone_id" class="sr-only" :value="p.id" :checked="phoneId === p.id" :disabled="!p.can.send" @change="choose(p)">
-                                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
-                                      x-text="(p.name || '?').replace('@', '').slice(0, 1).toUpperCase()"></span>
-                                <span class="min-w-0 flex-1">
-                                    <span class="block truncate text-[13px] font-semibold text-gray-950 dark:text-white" x-text="p.name"></span>
-                                    <span class="c-muted block font-mono text-xs" x-text="p.phone"></span>
-                                    @if ($isAdmin)
-                                        <span x-show="!p.is_mine && p.owner" class="c-muted mt-0.5 flex items-center gap-1 truncate text-xs">
-                                            <x-ui.icon name="user" class="h-3 w-3" /><span class="truncate" x-text="p.owner?.name"></span>
-                                        </span>
-                                    @endif
-                                    <span x-show="p.flood_until" class="mt-1 flex items-center gap-1 text-xs text-warning-700 dark:text-warning-300">
-                                        <x-ui.icon name="pause" class="h-3 w-3" />{{ __('send.paused_until') }} <span class="font-semibold" x-text="$fmt.relative(p.flood_until)"></span>
+
+                    {{-- Chosen --}}
+                    <div x-show="phone && !picking" class="flex items-center gap-3 px-4 py-3">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+                              x-text="initial(phone)"></span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                                <span class="truncate text-[13px] font-semibold text-gray-950 dark:text-white" x-text="phone?.name"></span>
+                                <span class="c-muted font-mono text-xs" x-text="phone?.phone"></span>
+                            </div>
+                            <div class="c-muted mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                                @if ($isAdmin)
+                                    <span x-show="phone?.owner && !phone?.is_mine" class="flex min-w-0 items-center gap-1">
+                                        <x-ui.icon name="user" class="h-3 w-3" /><span class="truncate" x-text="phone?.owner?.name"></span>
                                     </span>
-                                    <span x-show="!p.can.send" class="mt-1 block text-xs text-error-600 dark:text-error-400">{{ __('send.not_ready') }}</span>
-                                    <span x-show="phoneId === p.id && preview.sent_today !== null" class="c-muted mt-1 block text-xs tabular-nums">
-                                        {{ __('send.sent_today') }}: <span class="font-semibold text-gray-900 dark:text-white" x-text="$fmt.number(preview.sent_today)"></span><span x-show="preview.daily_limit" x-text="' / ' + $fmt.number(preview.daily_limit)"></span>
-                                    </span>
+                                @endif
+                                <span x-show="preview.sent_today !== null" class="tabular-nums">
+                                    {{ __('send.sent_today') }}: <span class="font-semibold text-gray-900 dark:text-white" x-text="$fmt.number(preview.sent_today)"></span><span x-show="preview.daily_limit" x-text="' / ' + $fmt.number(preview.daily_limit)"></span>
                                 </span>
-                                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold" :class="$fmt.tone(p.tone)">
-                                    <span class="c-dot h-1.5 w-1.5"></span>
-                                    <span x-text="p.flood_until ? @js(__('phones.paused')) : p.status_label"></span>
+                                <span x-show="phone?.flood_until" class="flex items-center gap-1 text-warning-700 dark:text-warning-300">
+                                    <x-ui.icon name="pause" class="h-3 w-3" />{{ __('send.paused_until') }} <span class="font-semibold" x-text="phone?.flood_until ? $fmt.relative(phone.flood_until) : ''"></span>
                                 </span>
+                            </div>
+                        </div>
+                        <x-ui.button size="sm" variant="secondary" @click="openPicker()">{{ __('send.change_account') }}</x-ui.button>
+                    </div>
+
+                    {{-- Picker --}}
+                    <div x-show="!phone || picking" @keydown.escape="closePicker()">
+                        <div class="flex flex-col gap-2 border-b border-[var(--line)] p-3 sm:flex-row sm:items-center">
+                            <div class="relative min-w-0 flex-1">
+                                <x-ui.icon name="search" class="c-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input type="search" x-ref="phoneSearch" x-model="phoneSearch" @keydown.enter.prevent="pickFirst()" class="c-input pl-9"
+                                       placeholder="{{ __('send.search_accounts') }}" aria-label="{{ __('send.search_accounts') }}" autocomplete="off">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                @if ($isAdmin)
+                                    <div class="inline-flex shrink-0 rounded-xl border border-[var(--line-strong)] p-0.5" role="group">
+                                        @foreach (['all' => __('send.scope_all'), 'mine' => __('send.scope_mine')] as $scope => $label)
+                                            <button type="button" @click="phoneScope = @js($scope)" :aria-pressed="phoneScope === @js($scope)"
+                                                    class="inline-flex h-8 items-center gap-1.5 rounded-[10px] px-3 text-xs font-medium transition-colors"
+                                                    :class="phoneScope === @js($scope) ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'">
+                                                {{ $label }} <span class="tabular-nums opacity-60" x-text="$fmt.number(scopeCount(@js($scope)))"></span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                <x-ui.button x-show="phone" size="sm" variant="ghost" @click="closePicker()">{{ __('common.cancel') }}</x-ui.button>
+                            </div>
+                        </div>
+
+                        <div class="max-h-[360px] overflow-y-auto" role="radiogroup" aria-label="{{ __('send.step_account') }}">
+                            <template x-for="g in phoneGroups" :key="g.key">
+                                <div>
+                                    <div x-show="g.label" class="sticky top-0 z-[1] flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <span class="truncate" x-text="g.label"></span>
+                                        <span class="tabular-nums" x-text="g.phones.length"></span>
+                                    </div>
+                                    <template x-for="p in g.phones" :key="p.id">
+                                        <label class="flex items-center gap-3 border-b border-[var(--line)] px-4 py-2 transition-colors" :class="phoneRowClass(p)">
+                                            <input type="radio" name="phone_id" class="peer sr-only" :value="p.id" :checked="phoneId === p.id" :disabled="!p.can.send" @change="choose(p)">
+                                            <span class="grid h-4 w-4 shrink-0 place-items-center rounded-full border peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/60"
+                                                  :class="phoneId === p.id ? 'border-brand-500' : 'border-gray-300 dark:border-gray-600'">
+                                                <span x-show="phoneId === p.id" class="h-2 w-2 rounded-full bg-brand-500"></span>
+                                            </span>
+                                            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+                                                  x-text="initial(p)"></span>
+                                            <span class="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-2">
+                                                <span class="block truncate text-[13px] font-medium text-gray-950 dark:text-white" x-text="p.name"></span>
+                                                <span class="c-muted block shrink-0 font-mono text-xs" x-text="p.phone"></span>
+                                            </span>
+                                            <span class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold" :class="$fmt.tone(p.tone)"
+                                                  :title="p.flood_until ? @js(__('send.paused_until')) + ' ' + $fmt.relative(p.flood_until) : ''">
+                                                <span class="c-dot h-1.5 w-1.5"></span>
+                                                <span x-text="p.flood_until ? @js(__('phones.paused')) : p.status_label"></span>
+                                            </span>
+                                        </label>
+                                    </template>
+                                </div>
+                            </template>
+                            <p x-show="!matchedPhones.length" x-cloak class="c-muted px-4 py-8 text-center text-[13px]"
+                               x-text="readyCount ? t.no_accounts_found : t.no_ready_accounts"></p>
+                        </div>
+
+                        <div x-show="notReadyCount" x-cloak class="flex items-center justify-between gap-3 border-t border-[var(--line)] px-4 py-2 text-xs">
+                            <label class="inline-flex cursor-pointer items-center gap-2 text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" class="c-check" x-model="showNotReady">
+                                <span x-text="t.show_not_ready.replace(':n', $fmt.number(notReadyCount))"></span>
                             </label>
-                        </template>
+                            <span class="c-muted hidden sm:inline">{{ __('send.enter_to_pick') }}</span>
+                        </div>
                     </div>
-                    <p x-show="fieldError('phone_id')" x-cloak class="px-4 pb-4 text-xs text-error-600 dark:text-error-400" x-text="fieldError('phone_id')"></p>
+                    <p x-show="fieldError('phone_id')" x-cloak class="border-t border-[var(--line)] px-4 py-3 text-xs text-error-600 dark:text-error-400" x-text="fieldError('phone_id')"></p>
                 </section>
 
                 {{-- 2. Catalogs --}}
@@ -111,7 +179,18 @@
                                 <x-ui.icon name="search" class="c-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input type="search" x-model="search" data-page-search class="c-input pl-9" placeholder="{{ __('send.search_catalogs') }}" autocomplete="off">
                             </div>
-                            <div class="flex gap-1">
+                            <div class="flex flex-wrap items-center gap-1">
+                                @if ($isAdmin)
+                                    <div class="mr-1 inline-flex shrink-0 rounded-xl border border-[var(--line-strong)] p-0.5" role="group">
+                                        @foreach (['all' => __('send.scope_all'), 'mine' => __('send.scope_mine')] as $scope => $label)
+                                            <button type="button" @click="catalogScope = @js($scope)" :aria-pressed="catalogScope === @js($scope)"
+                                                    class="inline-flex h-7 items-center gap-1.5 rounded-[10px] px-2.5 text-xs font-medium transition-colors"
+                                                    :class="catalogScope === @js($scope) ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'">
+                                                {{ $label }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 <x-ui.button size="sm" variant="ghost" icon="check" @click="selectAll()">{{ __('send.select_all') }}</x-ui.button>
                                 <x-ui.button size="sm" variant="ghost" icon="x" @click="selectNone()" ::disabled="!selected.length">{{ __('send.select_none') }}</x-ui.button>
                             </div>

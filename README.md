@@ -12,14 +12,15 @@ Laravel 12 · PHP 8.2+ · MySQL · MadelineProto 8 · Blade + Alpine + Tailwind 
 ```
 Браузер / API ──► контроллер ──► Action (транзакция, проверки) ──► строки в БД
                                                                      │
-   queue:work --queue=telegramWebsol (логин, проверки, история) ◄───┤
-                                                                     │
-   queue:work --queue=telegramWebsol-sending --max-jobs=1 ◄── SendAccountMessages {account}
-      берёт строки pending → sending (атомарно), шлёт, пишет итог;
-      время вышло — джоба сама возвращается в очередь
-
-   cron → telegram:tick (раз в минуту): починка, следующие круги повторов,
-          аккаунты с ожидающими сообщениями → в очередь, удаление ненужных файлов
+   queue:work --queue=telegramWebsol ◄──────────────────────────────┘
+   (одна программа supervisord, cron не нужен; всё — задачи одной очереди)
+      ├─ логин, проверки сессий, история чатов
+      ├─ SendAccountMessages {account}: строки pending → sending (атомарно), шлёт, пишет итог;
+      │  время вышло — джоба сама возвращается в очередь; одновременно не больше
+      │  TELEGRAM_SEND_SLOTS аккаунтов, чтобы вход не ждал рассылки
+      └─ MinuteTick (воркер сам ставит её раз в минуту): починка, следующие круги повторов,
+         аккаунты с ожидающими сообщениями → в очередь, удаление ненужных файлов,
+         раз в день — проверка сессий, история чатов, чистка журнала
 ```
 
 - **MadelineProto никогда не запускается в веб-запросе.** Веб меняет строки, процессы шлют,
@@ -43,8 +44,7 @@ npm install && npm run build      # или npm run dev
 cp .env.example .env && php artisan key:generate   # APP_ENV=local, APP_DEBUG=true, своя БД
 php artisan migrate
 php artisan serve
-php artisan queue:work --queue=telegramWebsol,telegramWebsol-sending   # логин и отправка
-php artisan schedule:work                                  # telegram:tick раз в минуту
+php artisan queue:work --queue=telegramWebsol --sleep=3 --tries=3 --timeout=370 --max-time=3600   # всё: логин, отправка, минутная проверка
 ```
 
 ## Тесты
@@ -60,8 +60,6 @@ php artisan test
 
 | Команда | Что делает |
 |---|---|
-| `telegram:tick` | раз в минуту: починка брошенных строк, круги повторов, постановка аккаунтов в очередь, удаление файлов |
-| `telegram:send-worker {id}` | отправить очередь одного аккаунта прямо в консоли (отладка; на проде шлёт очередь) |
-| `telegram:check-sessions` | проверяет все сессии (по расписанию в 06:00) |
-| `chat-logs:refetch` | перечитывает отслеживаемые чаты (00:00) |
-| `monitoring:prune` | чистит старый журнал и счётчики API (03:30) |
+| `telegram:check-sessions` | ставит в очередь проверку всех сессий (MinuteTick запускает её раз в день после 06:00) |
+| `chat-logs:refetch` | ставит в очередь перечитывание отслеживаемых чатов (после 00:00) |
+| `monitoring:prune` | чистит старый журнал и счётчики API (после 03:30) |

@@ -25,7 +25,8 @@ export default function monitoringPage({ urls, t, errors, phones }) {
             queue: { alive: false, last_beat: null, waiting: 0, delayed: 0, reserved: 0, oldest_wait_seconds: null, failed: 0 },
             alerts_configured: false,
         },
-        sending: { groups: [], queued_messages: 0, in_flight: 0, active_groups: 0 },
+        sending: { groups: [], queued_messages: 0, in_flight: 0, active_groups: 0, active_loops: 0 },
+        stopping: false,
         today: { sent: 0, failed: 0, pending: 0, canceled: 0, groups: 0, accounts: 0 },
         last_24h: [],
         accounts: { by_status: {}, attention: [], daily_limit: 0 },
@@ -66,7 +67,7 @@ export default function monitoringPage({ urls, t, errors, phones }) {
 
         // ------------------------------------------------------------ derived
 
-        /** The minute tick (cron): the safety net of the send queue. */
+        /** The minute tick (queued by the worker itself): the safety net of the send queue. */
         get tick() {
             return this.processes.tick;
         },
@@ -92,6 +93,19 @@ export default function monitoringPage({ urls, t, errors, phones }) {
 
         get down() {
             return !this.loading && (!this.tick.alive || !this.queue.alive);
+        },
+
+        /** "Stop everything" (POST sends.cancel-all): every active send, repeating send and pending API message. */
+        async stopAll() {
+            const { active_groups: groups, queued_messages: messages, active_loops: loops } = this.sending;
+            const s = t.stop_all;
+            const body = [
+                s.stop_all_body.replace(':groups', this.$fmt.number(groups)).replace(':messages', this.$fmt.number(messages)),
+                loops ? s.stop_all_loops.replace(':n', this.$fmt.number(loops)) : null,
+                s.stop_all_tasks,
+            ];
+            const ok = await this.$store.confirm.ask({ title: s.stop_all_title, body: body.filter(Boolean).join('\n'), action: s.action });
+            if (ok && (await this.$act(() => http.post(urls.stopAll), { busy: 'stopping' }))) this.load().catch(() => {});
         },
 
         get successRate() {

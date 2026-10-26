@@ -26,15 +26,13 @@ return [
     'madeline_log' => storage_path('logs/madeline/madeline.log'),
 
     /*
-    | Queues. Every name starts with "telegramWebsol", so this project's workers are
-    | easy to tell apart from other projects' on the server. "telegramWebsol" takes
-    | login steps, session checks and everything else (it is also the connection's
-    | default queue); "telegramWebsol-sending" takes the per-account send jobs (each
-    | runs up to worker.max_runtime). Separate so a long send never makes a login
-    | code wait.
+    | The one queue of the project: login steps, session checks, chat history, sends,
+    | the minute tick. Set in one place, DB_QUEUE, which is also the default queue of
+    | the queue connections (config/queue.php). The name carries the project's name:
+    | the server runs other projects' workers too. One supervisor program works it
+    | (deploy/supervisor.conf); no cron.
     */
-    'queue' => env('TELEGRAM_QUEUE', 'telegramWebsol'),
-    'send_queue' => env('TELEGRAM_SEND_QUEUE', 'telegramWebsol-sending'),
+    'queue' => env('DB_QUEUE', 'telegramWebsol'),
 
     /*
     | Login: an attempt that has not moved for this long may be started again.
@@ -62,6 +60,9 @@ return [
         // on the queue. Its timeout is max_runtime + 120, which must stay below the queue's
         // retry_after (DB_QUEUE_RETRY_AFTER, 400), or a running job would be started twice.
         'max_runtime' => 240,
+        // How many accounts send at the same time. The queue's supervisor program needs at
+        // least one process more (numprocs), so a login code never waits behind the sends.
+        'send_slots' => (int) env('TELEGRAM_SEND_SLOTS', 3),
         'stale_claim_minutes' => 10, // a row "sending" longer than this goes back to pending
         'max_attempts' => 3,
         // A message still pending this long after it was queued is never sent (status failed,

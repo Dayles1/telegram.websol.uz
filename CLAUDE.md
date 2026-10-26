@@ -35,7 +35,7 @@ app/
   Sending/                  MassSend (create a send / a repeat round), SendOrder, CatalogCooldown,
                             Peers (normalization), GroupProgress (the only place a group status
                             changes; schedules repeat rounds), DailyLimit, Attachments (files, cleanup),
-                            SendWorker (one account, one process), SendScheduler (telegram:tick)
+                            SendWorker (one account, one process), SendScheduler (minute tick)
   Telegram/                 the MadelineProto boundary: Contracts/TelegramGateway + TelegramSession,
                             Madeline/* (real implementation), Errors/ErrorMap (RPC error -> key + kind),
                             SessionStore, ProcessLock, Phone
@@ -44,10 +44,11 @@ app/
   Queries/                  read side: GroupList, DeliveryStats (analytics)
   Settings/                 runtime settings (app_settings over config/telegram.php defaults)
   ChatLogs/                 chat history copy (API fetch-messages / chat-logs)
-  Jobs/                     SendAccountMessages (queue "telegramWebsol-sending", unique per account), StartLoopRound,
-                            Accounts/* login steps, FetchChatHistory; ids only in payloads
-  Console/Commands/         telegram:tick, telegram:send-worker (debug), telegram:check-sessions,
-                            chat-logs:refetch, monitoring:prune
+  Jobs/                     everything on the one queue "telegramWebsol": SendAccountMessages (unique per
+                            account, at most worker.send_slots at once), MinuteTick (the clock, queued by the
+                            worker itself; no cron), StartLoopRound, Accounts/* login steps, FetchChatHistory;
+                            ids only in payloads
+  Console/Commands/         telegram:check-sessions, chat-logs:refetch, monitoring:prune (MinuteTick runs them daily)
   Http/Controllers/Web/     Blade pages + their JSON endpoints (Alpine polls them)
   Http/Controllers/Api/V1/  the external API: old URLs and response shapes kept on purpose
   Http/Resources/           JSON for the web pages
@@ -72,9 +73,11 @@ tests/Fakes/FakeTelegram.php               Telegram in tests
 - Tests: `php artisan test` (MySQL test database, see `phpunit.xml`).
 - Style: `vendor/bin/pint`.
 - Frontend: `npm run dev` / `npm run build`.
-- Queue: `php artisan queue:work --queue=telegramWebsol` and `--queue=telegramWebsol-sending --max-jobs=1`
-  (every queue name starts with `telegramWebsol`: the server runs other projects' workers too)
-  (production: `deploy/supervisor.conf`); `schedule:run` from cron runs `telegram:tick`.
+- Queue: `php artisan queue:work --queue=telegramWebsol --sleep=3 --tries=3 --timeout=370 --max-time=3600` — the only process the project needs
+  (the name carries the project's name: the server runs other projects' workers too).
+  Production: one supervisor program, numprocs = TELEGRAM_SEND_SLOTS + 1. The queue name is set
+  only in .env `DB_QUEUE` (read by config/queue.php and config('telegram.queue'))
+  (`deploy/supervisor.conf`). No cron, no scheduler, no long-running commands of our own.
 - API docs: `docs/API.md` + `docs/postman/*.json` — update them with every API change.
 
 ## Git

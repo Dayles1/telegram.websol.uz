@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Queries;
 
 use App\Enums\GroupStatus;
+use App\Enums\LoopStatus;
+use App\Enums\MessageStatus;
 use App\Models\MessageGroup;
+use App\Models\SendLoop;
+use App\Models\TelegramMessage;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +48,25 @@ final class GroupList
                 ->orWhereHas('catalogs', fn (Builder $c) => $c->where('title', 'like', "%{$search}%"))
                 ->when(ctype_digit($search), fn (Builder $id) => $id->orWhere('message_groups.id', (int) $search))))
             ->latest('id');
+    }
+
+    /**
+     * What "stop everything" would stop for this user (one account's, when given).
+     *
+     * @return array{groups: int, messages: int, loops: int}
+     */
+    public function activeSummary(User $user, ?int $phoneId = null): array
+    {
+        $groups = MessageGroup::query()->visibleTo($user)->active()
+            ->when($phoneId, fn (Builder $q, int $id) => $q->where('user_phone_id', $id));
+
+        return [
+            'groups' => (clone $groups)->count(),
+            'messages' => TelegramMessage::query()->where('status', MessageStatus::Pending)
+                ->whereIn('message_group_id', (clone $groups)->select('id'))->count(),
+            'loops' => SendLoop::query()->visibleTo($user)->where('status', LoopStatus::Active)
+                ->when($phoneId, fn (Builder $q, int $id) => $q->where('user_phone_id', $id))->count(),
+        ];
     }
 
     /** @param array<string, mixed> $filters */

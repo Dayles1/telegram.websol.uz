@@ -5,13 +5,19 @@ const FILTERS = ['search', 'status', 'phone_id', 'from', 'to'];
 
 /**
  * History of sends. Filters live in the URL query string, so /sends?status=active
- * is a shareable link and survives a reload. Polls every 3s while a listed send
- * is running, every 20s otherwise.
+ * is a shareable link and survives a reload. Polls every 3s while a send is
+ * running, every 20s otherwise.
+ *
+ * "Stop everything" stops what the server counts in `active` (all pages; only the
+ * account filter narrows it), so the button and its confirm text never depend on
+ * the page being looked at.
  */
-export default function sendsPage({ url, t }) {
+export default function sendsPage({ url, stopAllUrl, phones, t }) {
     return {
         groups: [],
         meta: { current_page: 1, last_page: 1, total: 0 },
+        active: { groups: 0, messages: 0, loops: 0 },
+        stopping: false,
         loading: true,
         filters: { search: '', status: '', phone_id: '', from: '', to: '' },
         page: 1,
@@ -38,11 +44,35 @@ export default function sendsPage({ url, t }) {
         },
 
         get anyActive() {
-            return this.groups.some((g) => g.active);
+            return this.active.groups > 0 || this.groups.some((g) => g.active);
         },
 
         get activeCount() {
-            return this.groups.filter((g) => g.active).length;
+            return this.active.groups;
+        },
+
+        /** Something "stop everything" would stop: a running send or a repeating one between rounds. */
+        get canStopAll() {
+            return this.active.groups > 0 || this.active.loops > 0;
+        },
+
+        async stopAll() {
+            const { groups, messages, loops } = this.active;
+            const account = phones[this.filters.phone_id];
+            const body = [
+                t.stop_all_body.replace(':groups', this.$fmt.number(groups)).replace(':messages', this.$fmt.number(messages)),
+                loops ? t.stop_all_loops.replace(':n', this.$fmt.number(loops)) : null,
+                t.stop_all_tasks,
+            ];
+            const ok = await this.$store.confirm.ask({
+                title: account ? t.stop_all_title_account.replace(':account', account) : t.stop_all_title,
+                body: body.filter(Boolean).join('\n'),
+                action: t.stop_all,
+            });
+            if (!ok) return;
+
+            const done = await this.$act(() => http.post(stopAllUrl, { phone_id: this.filters.phone_id || null }), { busy: 'stopping' });
+            if (done) this.refresh(false);
         },
 
         get filtered() {
@@ -55,6 +85,7 @@ export default function sendsPage({ url, t }) {
             const data = await http.get(url, { ...this.filters, page: this.page }, { signal: this.abort.signal });
             this.groups = data.groups;
             this.meta = data.meta;
+            this.active = data.active ?? this.active;
             this.loading = false;
 
             // the list shrank under us (filters, deletions): go to the last page that exists

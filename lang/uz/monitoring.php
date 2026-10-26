@@ -20,12 +20,12 @@ return [
         'connection_lost' => 'server bilan aloqa yo‘q',
 
         'down_title' => 'Yuborishlar uchun zarur jarayon ishlamayapti',
-        'tick_down' => 'Minutlik tekshiruv 3 daqiqadan beri ishlamadi: takroriy yuborishlarning raundlari boshlanmayapti, qotib qolgan xabarlar tuzatilmayapti, ishlatilmagan fayllar o‘chirilmayapti. Cron qatorini qo‘shing:',
-        'queue_down' => 'Navbat workeri javob bermayapti: xabarlar yuborilmayapti, sessiya tekshiruvlari va kirish bajarilmayapti. Ikkala workerni ishga tushiring:',
-        'down_hint' => 'Prodakshnda cron qatori serverning crontab ida turadi, navbat workerlarini esa supervisord ushlab turadi (namuna — deploy/supervisor.conf), shunda ular nosozlik va server qayta yuklanganidan keyin o‘zi qayta ishga tushadi.',
+        'tick_down' => 'Minutlik tekshiruv 3 daqiqadan beri ishlamadi: takroriy yuborishlarning raundlari boshlanmayapti, qotib qolgan xabarlar tuzatilmayapti, ishlatilmagan fayllar o‘chirilmayapti. Navbat workeri tirik, demak tekshiruv vazifasi yiqilyapti: hodisalar jurnali va yiqilgan vazifalarni ko‘ring.',
+        'queue_down' => 'Navbat workeri javob bermayapti: xabarlar yuborilmayapti, sessiya tekshiruvlari va kirish bajarilmayapti. Workerni ishga tushiring:',
+        'down_hint' => 'Prodakshnda workerni bitta supervisord dasturi ushlab turadi (deploy/supervisor.conf), shunda u nosozlik va server qayta yuklanganidan keyin o‘zi qayta ishga tushadi. Cron kerak emas: minutlik tekshiruvni worker o‘zi navbatga qo‘yadi.',
 
         'sending' => 'Yuborish',
-        'tick_title' => 'Minutlik tekshiruv (telegram:tick, cron orqali)',
+        'tick_title' => 'Minutlik tekshiruv (uni worker o‘zi navbatga qo‘yadi)',
         'jobs_running' => 'ta yuborish vazifasi ishlamoqda',
         'last_tick' => 'Oxirgi tekshiruv',
         'tick_queued' => 'oxirgi tekshiruv navbatga qo‘ygan akkauntlar: :n',

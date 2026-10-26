@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('sends')->name('sends.')->controller(GroupController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('data', 'data')->name('data');
+        Route::post('cancel-all', 'cancelAll')->name('cancel-all');
         Route::get('{group}', 'show')->name('show');
         Route::get('{group}/progress', 'progress')->name('progress');
         Route::post('{group}/cancel', 'cancel')->name('cancel');

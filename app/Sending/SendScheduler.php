@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Keeps sending moving without a long-running process of our own:
- * telegram:tick runs tick() every minute from the scheduler.
+ * the MinuteTick job runs tick() every minute from the queue worker.
  *
  * Sends are queued when they are created; this is the safety net: it repairs
  * what crashed work left behind, starts overdue rounds of repeating sends,

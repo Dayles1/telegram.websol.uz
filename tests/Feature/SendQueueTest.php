@@ -5,6 +5,10 @@ namespace Tests\Feature;
 use App\Enums\GroupStatus;
 use App\Enums\LoopStatus;
 use App\Enums\MessageStatus;
+use App\Jobs\Accounts\CheckAccountSession;
+use App\Jobs\Accounts\RequestLoginCode;
+use App\Jobs\FetchChatHistory;
+use App\Jobs\MinuteTick;
 use App\Jobs\SendAccountMessages;
 use App\Jobs\StartLoopRound;
 use App\Models\Attachment;
@@ -17,9 +21,14 @@ use App\Sending\MassSend;
 use App\Sending\SendScheduler;
 use App\Sending\SendWorker;
 use App\Settings\Settings;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -247,7 +256,7 @@ class SendQueueTest extends TestCase
 
         $job->assertNotReleased();
         $this->assertSame(['@alice'], $this->telegram->sentTo());
-        $this->assertSame('telegramWebsol-sending', (new SendAccountMessages(1))->queue);
+        $this->assertSame('telegramWebsol', (new SendAccountMessages(1))->queue, 'one queue for everything');
     }
 
     public function test_the_tick_queues_every_account_with_due_messages(): void
@@ -260,6 +269,80 @@ class SendQueueTest extends TestCase
 
         $this->assertSame([$this->phone->id], app(SendScheduler::class)->dueAccounts());
         $this->assertSame(1, app(SendScheduler::class)->tick()['queued']);
+    }
+
+    public function test_a_send_waits_while_every_send_slot_is_taken(): void
+    {
+        config(['telegram.worker.send_slots' => 1]);
+        $this->api(['peer' => '@alice', 'message' => 'hi'])->assertOk();
+        $taken = Cache::lock('telegram:send-slot:0', 60);
+        $taken->get();
+
+        $job = (new SendAccountMessages($this->phone->id))->withFakeQueueInteractions();
+        $job->handle(app(SendWorker::class)->sleepUsing(fn () => null));
+        $job->assertReleased(15);
+        $this->assertSame([], $this->telegram->sentTo(), 'the other processes stay free for logins');
+
+        $taken->release();
+        $job = (new SendAccountMessages($this->phone->id))->withFakeQueueInteractions();
+        $job->handle(app(SendWorker::class)->sleepUsing(fn () => null));
+        $job->assertNotReleased();
+        $this->assertSame(['@alice'], $this->telegram->sentTo());
+        $this->assertTrue(Cache::lock('telegram:send-slot:0', 60)->get(), 'the job gives its slot back');
+    }
+
+    public function test_the_worker_queues_the_minute_tick_once_a_minute(): void
+    {
+        Bus::fake([SendAccountMessages::class, StartLoopRound::class, MinuteTick::class]);
+
+        event(new Looping('database', 'telegramWebsol'));
+        event(new Looping('database', 'telegramWebsol'));
+        Bus::assertDispatchedTimes(MinuteTick::class, 1);
+
+        // a tick still waiting for a busy worker is not queued twice
+        $this->travel(61)->seconds();
+        event(new Looping('database', 'telegramWebsol'));
+        Bus::assertDispatchedTimes(MinuteTick::class, 1);
+
+        (new UniqueLock(Cache::driver()))->release(new MinuteTick); // what the worker does once the tick ran
+        $this->travel(61)->seconds();
+        event(new Looping('database', 'telegramWebsol'));
+        Bus::assertDispatchedTimes(MinuteTick::class, 2);
+    }
+
+    public function test_the_minute_tick_queues_due_sends_and_runs_the_daily_chores_once_a_day(): void
+    {
+        Bus::fake([SendAccountMessages::class, StartLoopRound::class, CheckAccountSession::class]);
+        $this->travelTo(now()->setTime(5, 0));
+        $this->api(['peer' => '@alice', 'message' => 'hi'])->assertOk();
+
+        (new MinuteTick)->handle(app(SendScheduler::class));
+        Bus::assertDispatched(SendAccountMessages::class);
+        Bus::assertNotDispatched(CheckAccountSession::class);
+
+        $this->travelTo(now()->setTime(6, 1));
+        (new MinuteTick)->handle(app(SendScheduler::class));
+        (new MinuteTick)->handle(app(SendScheduler::class));
+        Bus::assertDispatchedTimes(CheckAccountSession::class, 1);
+
+        $this->travelTo(now()->addDay()->setTime(6, 0));
+        (new MinuteTick)->handle(app(SendScheduler::class));
+        Bus::assertDispatchedTimes(CheckAccountSession::class, 2);
+        $this->assertSame('telegramWebsol', (new MinuteTick)->queue);
+    }
+
+    public function test_every_job_can_be_put_on_the_database_queue(): void
+    {
+        // Bus::fake() never builds a payload; the real queue does (a private backoff() once broke every send).
+        $queue = Queue::connection('database');
+        $queue->push(new SendAccountMessages($this->phone->id));
+        $queue->push(new MinuteTick);
+        $queue->push(new StartLoopRound(1));
+        $queue->push(new RequestLoginCode($this->phone->id));
+        $queue->push(new CheckAccountSession($this->phone->id));
+        $queue->push(new FetchChatHistory(1));
+
+        $this->assertSame(6, DB::table('jobs')->count());
     }
 
     public function test_peers_of_catalogs_and_a_retried_send_keep_the_file(): void

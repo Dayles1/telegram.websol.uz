@@ -13,7 +13,10 @@
 <x-layouts.app :title="__('sends.title')">
     <div x-data="sendsPage({
         url: @js(route('sends.data')),
-        t: @js(['every' => __('sends.js.every'), 'units' => __('sends.js.units'), 'file_removed' => __('sends.file_removed')]),
+        stopAllUrl: @js(route('sends.cancel-all')),
+        phones: @js($phones->pluck('phone', 'id')),
+        t: @js(['every' => __('sends.js.every'), 'units' => __('sends.js.units'), 'file_removed' => __('sends.file_removed'), 'stop_all' => __('sends.stop_all')]
+            + \Illuminate\Support\Arr::only(__('sends.js'), ['stop_all_title', 'stop_all_title_account', 'stop_all_body', 'stop_all_loops', 'stop_all_tasks'])),
     })">
         <x-ui.page-header :title="__('sends.title')" :description="__('sends.description')">
             <x-slot:actions>
@@ -21,6 +24,7 @@
                     <span class="c-dot is-live text-brand-500"></span>
                     <span x-text="@js(__('sends.active_now')).replace(':count', activeCount)"></span>
                 </span>
+                <x-ui.button x-show="canStopAll" x-cloak variant="danger-ghost" icon="stop" @click="stopAll()" ::disabled="stopping">{{ __('sends.stop_all') }}</x-ui.button>
                 <x-ui.button :href="route('send.create')" variant="primary" icon="send">{{ __('sends.new_send') }}</x-ui.button>
             </x-slot:actions>
         </x-ui.page-header>

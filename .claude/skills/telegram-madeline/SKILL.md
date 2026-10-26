@@ -52,12 +52,15 @@ Later: `authorized → revoked` (dead session), `authorized → logging_out → 
    resolved by number), catalog cooldown (`CatalogCooldown`, same transaction), optional file
    (`Attachments`, local disk, never public) and repeat (`SendLoop`), group + one pending row
    per peer, then `SendAccountMessages::dispatch($phoneId)`. Nothing is sent here.
-2. `App\Jobs\SendAccountMessages` (queue `telegramWebsol-sending`, `ShouldBeUnique` per account, worker
-   started with `--max-jobs=1`) runs `SendWorker` for `worker.max_runtime` seconds; time up
+2. `App\Jobs\SendAccountMessages` (the one queue `telegramWebsol` from `DB_QUEUE`, `ShouldBeUnique`
+   per account) takes one of `worker.send_slots` (else `release(15)`, so a
+   process stays free for logins) and runs `SendWorker` for `worker.max_runtime` seconds; time up
    with rows left → `release(pause)`, failing → `release(backoff)`, busy → `release(30)`.
-3. `telegram:tick` (`App\Sending\SendScheduler`, every minute): sweeps stale claims and
-   orphaned rows, starts overdue repeat rounds, queues every account with due rows,
-   deletes attachments nothing can send any more (`telegram.attachments.keep_minutes`).
+3. `App\Jobs\MinuteTick` — queued by the worker itself once a minute (`Looping` listener in
+   `AppServiceProvider`; no cron) — runs `App\Sending\SendScheduler::tick()`: sweeps stale claims
+   and orphaned rows, starts overdue repeat rounds, queues every account with due rows, deletes
+   attachments nothing can send any more (`telegram.attachments.keep_minutes`); then the daily
+   chores (session checks, chat history, pruning) once a day.
 4. `App\Sending\SendWorker` claims each row with a conditional UPDATE
    (`pending → sending`) — a row can't go out twice; paces with the settings' delays (also
    across runs, from `last_sent_at`); checks the daily limit; re-reads the account every

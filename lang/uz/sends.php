@@ -7,6 +7,8 @@ return [
     'retry_queued' => 'Yuborilmagan xabarlar qaytadan navbatga qo‘yildi.',
     'loop_not_active' => 'Takroriy yuborish allaqachon to‘xtagan.',
     'loop_stopped' => 'Takroriy yuborish to‘xtatildi.',
+    'stopped_all' => 'To‘xtatildi: :groups ta yuborish, bekor qilingan xabarlar: :messages.',
+    'nothing_to_stop' => 'To‘xtatadigan faol yuborish yo‘q.',
 
     // history
     'title' => 'Yuborishlar',
@@ -24,6 +26,7 @@ return [
     'empty_filtered' => 'Bu filtrlar bo‘yicha hech narsa topilmadi',
     'empty_filtered_text' => 'Qidiruv shartlarini o‘zgartiring yoki filtrlarni tozalang.',
     'active_now' => 'Hozir ketmoqda: :count',
+    'stop_all' => 'Hammasini to‘xtatish',
     'col_status' => 'Holat',
     'col_message' => 'Xabar',
     'col_account' => 'Akkaunt',
@@ -104,6 +107,11 @@ return [
 
     'js' => [
         'finished' => 'Yuborish tugadi',
+        'stop_all_title' => 'Barcha faol yuborishlar to‘xtatilsinmi?',
+        'stop_all_title_account' => ':account akkauntining yuborishlari to‘xtatilsinmi?',
+        'stop_all_body' => 'Faol yuborishlar: :groups ta. Navbatdagi :messages ta xabar yuborilmaydi; hozir ketayotgan xabar yetib boradi.',
+        'stop_all_loops' => 'Takroriy yuborishlar ham to‘xtaydi: :n ta.',
+        'stop_all_tasks' => 'API orqali navbatga qo‘yilgan bitta-bitta xabarlar ham bekor qilinadi.',
         'stop_title' => 'Yuborish to‘xtatilsinmi?',
         'stop_body' => 'Navbatdagi xabarlar yuborilmaydi. Yetkazilganlari o‘z holicha qoladi.',
         'stop' => 'To‘xtatish',

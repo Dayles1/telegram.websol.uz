@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Enums\EventKind;
 use App\Http\Middleware\SetLocale;
+use App\Jobs\MinuteTick;
 use App\Models\User;
 use App\Monitoring\EventRecorder;
 use App\Monitoring\QueueHealth;
@@ -47,10 +48,14 @@ class AppServiceProvider extends ServiceProvider
         $this->watchQueue();
     }
 
-    /** Queue worker pulse and failed jobs for the monitoring page. */
+    /** Queue worker pulse, the minute tick (the worker is the clock, no cron) and failed jobs. */
     private function watchQueue(): void
     {
-        Event::listen(Looping::class, fn () => QueueHealth::beat());
+        // A listener of Looping that returns false pauses the worker: these return nothing.
+        Event::listen(Looping::class, function (): void {
+            QueueHealth::beat();
+            MinuteTick::dispatchIfDue();
+        });
         Event::listen(JobProcessed::class, fn () => QueueHealth::beat());
         Event::listen(JobFailed::class, function (JobFailed $event): void {
             app(EventRecorder::class)->error(EventKind::Queue, 'Queue job failed: '.class_basename($event->job->resolveName()), [

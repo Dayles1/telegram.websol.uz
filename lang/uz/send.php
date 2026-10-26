@@ -19,6 +19,15 @@ return [
     'paused_until' => 'Telegram pauzasi tugashi',
     'sent_today' => 'Bugun',
     'mine' => 'Meniki',
+    'scope_all' => 'Hammasi',
+    'scope_mine' => 'Meniki',
+    'search_accounts' => 'Ism, raqam, username yoki egasi bo‘yicha qidirish',
+    'accounts_ready' => ':ready / :total tayyor',
+    'show_not_ready' => 'Tayyor bo‘lmaganlar ham (:n)',
+    'no_accounts_found' => 'Bu qidiruv bo‘yicha tayyor akkaunt topilmadi',
+    'no_ready_accounts' => 'Yuborishga tayyor akkaunt yo‘q. Akkauntlar sahifasida qayta ulang.',
+    'change_account' => 'O‘zgartirish',
+    'enter_to_pick' => 'Enter — birinchisini tanlash',
 
     // catalogs
     'no_catalogs_title' => 'Hali katalog yo‘q',

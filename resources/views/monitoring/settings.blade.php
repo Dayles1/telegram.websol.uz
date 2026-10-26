@@ -63,7 +63,7 @@
                                 <x-ui.icon name="info" class="mt-px h-3.5 w-3.5" /><span x-text="pacingText"></span>
                             </p>
                             <p class="c-muted flex items-start gap-2 text-xs">
-                                <x-ui.icon name="server" class="mt-px h-3.5 w-3.5" /><span>{{ __('settings.parallel_hint', ['queue' => config('telegram.send_queue')]) }}</span>
+                                <x-ui.icon name="server" class="mt-px h-3.5 w-3.5" /><span>{{ __('settings.parallel_hint', ['slots' => config('telegram.worker.send_slots'), 'processes' => config('telegram.worker.send_slots') + 1]) }}</span>
                             </p>
                         @endif
                     </div>

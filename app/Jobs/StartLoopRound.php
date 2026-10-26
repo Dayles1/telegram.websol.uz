@@ -12,7 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Starts the next round of a repeating send. Queued with a delay when a round
- * finishes; only database work, no Telegram. telegram:tick starts overdue rounds
+ * finishes; only database work, no Telegram. The minute tick starts overdue rounds
  * too, so a lost job only delays a round by a minute.
  */
 final class StartLoopRound implements ShouldQueue

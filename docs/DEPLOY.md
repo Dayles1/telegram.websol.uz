@@ -1,11 +1,12 @@
 # Выкатка новой версии на прод
 
 Новая версия работает на **той же базе**. Миграции только добавляют колонки и таблицы
-(6 файлов `2026_10_27_*`), старые данные и старые сессии Telegram продолжают работать —
+(файлы `2026_10_27_*`; последний только переносит ждущие задачи в единую очередь), старые данные и старые сессии Telegram продолжают работать —
 аккаунты перелогинивать не нужно.
 
-Отправка идёт через стандартную очередь Laravel: своего «супервизора» больше нет.
-На сервере нужны только supervisord (два `queue:work`, см. `deploy/supervisor.conf`) и cron.
+Всё — вход в аккаунт, проверки, отправка, минутная проверка — идёт задачами одной очереди
+`telegramWebsol`. На сервере нужна **одна** программа supervisord (`queue:work`, см.
+`deploy/supervisor.conf`). Cron не нужен: минутную проверку ставит в очередь сам воркер.
 
 ## 0. Один раз до выкатки
 
@@ -18,7 +19,7 @@
    ```bash
    php artisan migrate:status
    ```
-   Все старые миграции должны быть `Ran`, новыми должны быть только 6 файлов `2026_10_27_*`.
+   Все старые миграции должны быть `Ran`, новыми должны быть только файлы `2026_10_27_*`.
    Таблиц `attachments` и `send_loops` на проде быть не должно (их создаёт новая миграция).
    Если в списке есть что-то неожиданное (код старой версии ссылался на таблицы `peers`, `bans`,
    `departments`, которых нет в миграциях) — остановиться и разобраться до `migrate`.
@@ -40,7 +41,7 @@ php artisan down --retry=60
 
 # остановить ТОЛЬКО процессы этого проекта (на сервере есть чужие воркеры: не "stop all")
 supervisorctl status | grep -i websol        # какие программы у этого проекта
-supervisorctl stop telegram-websol-queue telegram-websol-sender   # имена из старого конфига
+supervisorctl stop <имя>:*                  # каждую программу websol из списка выше
 pkill -f "/var/www/telegram.websol.uz/artisan telegram:" || true  # старые nohup-процессы отправки
 
 git fetch && git checkout <релиз>            # или залить файлы
@@ -49,43 +50,46 @@ npm ci && npm run build                      # public/build не в git
 
 # .env — ДО optimize (иначе в кэш попадут старые значения). Новые ключи из .env.example:
 #   APP_DEBUG=false, APP_LOCALE=uz, DB_QUEUE_RETRY_AFTER=400,
-#   DB_QUEUE=telegramWebsol, TELEGRAM_QUEUE=telegramWebsol, TELEGRAM_SEND_QUEUE=telegramWebsol-sending
-#   (если остался TELEGRAM_QUEUE=telegram — заменить, иначе ничего не отправится!),
+#   DB_QUEUE=telegramWebsol (имя очереди задаётся только здесь), TELEGRAM_SEND_SLOTS=3
+#   (TELEGRAM_QUEUE и TELEGRAM_SEND_QUEUE больше не читаются — удалить),
 #   TELEGRAM_ALERT_BOT_TOKEN / TELEGRAM_ALERT_CHAT_ID, STATS_API_TOKEN
 
-php artisan migrate --force      # только 6 новых миграций, все «expand»
+php artisan migrate --force      # только новые миграции 2026_10_27_*, все «expand»
 php artisan storage:link         # аватары
 php artisan optimize:clear && php artisan optimize
 
-# заменить старый конфиг (в нём была программа telegram:supervisor) новым
+# заменить старый конфиг новым: в нём ОДНА программа telegram-websol
 cp deploy/supervisor.conf /etc/supervisor/conf.d/telegram-websol.conf   # поправить пути, php и user
-supervisorctl reread && supervisorctl update     # update трогает только изменённые программы
-supervisorctl start 'telegram-websol-queue:*' 'telegram-websol-sending:*'
+supervisorctl reread && supervisorctl update     # update удалит старые программы и добавит новую
+supervisorctl start 'telegram-websol:*'
 php artisan queue:restart
 
 php artisan up
 ```
 
-Cron (если ещё нет): `* * * * * cd /var/www/telegram.websol.uz && php artisan schedule:run >> /dev/null 2>&1`
+Cron для этого проекта не нужен. Если в `crontab -l` есть строка
+`cd /var/www/telegram.websol.uz && php artisan schedule:run` — удалить её (`crontab -e`).
 
-Очереди теперь называются `telegramWebsol` и `telegramWebsol-sending` (по имени проекта видно,
-чьи это воркеры). Задачи старой версии в очередях `telegram` / `default` новые воркеры не берут —
+Очередь теперь одна и называется `telegramWebsol` (по имени проекта видно, чьи это воркеры). Задачи старой версии в очередях `telegram` / `default` новые воркеры не берут —
 это классы, которых больше нет. Посмотреть: `SELECT queue, COUNT(*) FROM jobs GROUP BY queue;`,
 при желании убрать после проверки: `php artisan queue:clear database --queue=telegram` (и `--queue=default`).
 
-Что произойдёт с данными старой версии при первом `telegram:tick` (cron, в течение минуты):
+Что произойдёт с данными старой версии при первой минутной проверке (в течение минуты после старта воркера):
 - сообщения `pending`, созданные больше 24 часов назад (зависшие у старого кода), **не будут
   отправлены**: они получат статус «ошибка» с причиной «не отправлено вовремя»
   (`config/telegram.php` → `worker.expire_pending_hours`);
 - группы без оставшихся сообщений получат итоговый статус (`completed` / `failed`);
-- свежие `pending` (младше 24 ч) будут поставлены в очередь `telegramWebsol-sending` и отправлены.
+- свежие `pending` (младше 24 ч) будут поставлены в очередь `telegramWebsol` и отправлены.
 
 ## 2. Проверка после выкатки (5 минут)
 
-- Мониторинг → Обзор: «Отправка» (последний `telegram:tick` меньше 3 минут назад) и «Очередь» — зелёные.
-- `supervisorctl status`: `telegram-websol-queue_*` и `telegram-websol-sending_*` в `RUNNING`.
-- Аккаунты: старые телефоны видны со статусом «Подключён». Нажать «Проверить» на одном —
-  через пару секунд обновится «Проверен».
+- Мониторинг → Обзор: «Отправка» (последняя минутная проверка меньше 3 минут назад) и «Очередь» — зелёные.
+- `supervisorctl status`: только `telegram-websol:telegram-websol_00..03` в `RUNNING`
+  (раз в час каждый процесс перезапускается сам: `--max-time=3600`).
+- Команда воркера: `php artisan queue:work --queue=telegramWebsol --sleep=3 --tries=3 --timeout=370 --max-time=3600`.
+- Аккаунты: после миграции `2026_10_27_000008` **все** телефоны в статусе «Отключён» (так задумано,
+  см. ниже). Подключить заново один свой → «Подключён»; нажать «Проверить» — через пару секунд
+  обновится «Проверен».
 - Отправить 1 сообщение на свой тестовый username → в деталях рассылки статус «Доставлено».
 - Отправить файл (PDF или фото) на тот же username, затем файл больше 10 МБ: оба доходят.
 - API: `POST /api/tg/send` с `peer` вместо `catalog_ids` (см. `docs/postman/`).
@@ -93,9 +97,44 @@ Cron (если ещё нет): `* * * * * cd /var/www/telegram.websol.uz && php 
 - Внешний дашборд статистики: выдать ему `STATS_API_TOKEN` (заголовок `X-Stats-Token`) —
   без токена `/api/stats/*` теперь отвечают 403.
 
+## Все номера → «Отключён» (миграция `2026_10_27_000008`, один раз)
+
+По запросу от 2026-10-26: при `migrate` у **всех** телефонов статус в базе становится
+`logged_out`, чтобы каждый аккаунт подключили заново из панели.
+
+- Telegram не трогается: файлы сессий остаются, новый вход сам удаляет старый файл.
+  В Telegram у этих аккаунтов старое «устройство» останется в активных сеансах.
+- Пока аккаунт не подключён заново, с него ничего не отправляется; сообщения, которые ждали
+  отправки, первая же минутная проверка пометит ошибкой `session_revoked` — они не уйдут
+  и после повторного подключения (при необходимости: «Отправить неудачные заново»).
+- Старые статусы сохраняются в таблицу `user_phones_status_backup`. Вернуть их:
+  `php artisan migrate:rollback --step=1` (сразу после выкатки, пока это последняя миграция;
+  аккаунты, подключённые заново, свой новый статус сохранят). Таблицу удалить отдельным
+  релизом, когда откат больше не понадобится.
+- До выкатки: `php artisan migrate --pretend` и бэкап базы (раздел 0).
+
+## Переход с двух программ и cron на одну (если уже выкатывали версию с `telegramWebsol-sending`)
+
+```bash
+cd /var/www/telegram.websol.uz
+supervisorctl stop 'telegram-websol-queue:*' 'telegram-websol-sending:*'
+git pull                                   # или залить файлы
+# .env: DB_QUEUE=telegramWebsol, убрать TELEGRAM_QUEUE и TELEGRAM_SEND_QUEUE, добавить TELEGRAM_SEND_SLOTS=3
+php artisan migrate --pretend              # прочитать: 000007 (задачи очереди) и 000008 (все номера -> logged_out)
+php artisan migrate --force                # 000007: ждущие задачи из telegramWebsol-sending -> telegramWebsol; 000008: см. выше
+php artisan optimize:clear && php artisan optimize
+cp deploy/supervisor.conf /etc/supervisor/conf.d/telegram-websol.conf   # поправить пути, php и user
+supervisorctl reread && supervisorctl update     # старые две программы уйдут, новая запустится
+crontab -e                                       # удалить строку schedule:run этого проекта
+```
+
+Проверить: `supervisorctl status | grep -i websol` — одна программа `telegram-websol`;
+`SELECT queue, COUNT(*) FROM jobs GROUP BY queue;` — нет `telegramWebsol-sending`.
+
 ## 3. Откат
 
-Новые миграции ничего не удаляют, поэтому старый код работает и на новой схеме.
+Новые миграции ничего не удаляют, поэтому старый код работает и на новой схеме
+(кроме статусов телефонов: их возвращает `migrate:rollback --step=1`, см. выше).
 Откат = вернуть старый релиз кода (`git checkout <старый>`), `composer install`, перезапустить
 воркеры. `migrate:rollback` не нужен (и не нужно его делать без причины).
 
