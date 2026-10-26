@@ -1,116 +1,96 @@
 <?php
+
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
-class UserController extends Controller
+/** Users over the API. Was open to any token; now superadmin only (profile excepted). */
+final class UserController extends Controller
 {
-    // Userlar ro'yxati
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $search = $request->input('search');
-        $query = User::with('role');
+        Gate::authorize('viewAny', User::class);
+        $search = trim((string) $request->input('search'));
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                  ->orWhere('email', 'like', "%$search%");
-            });
-        }
-
-        $users = $query->paginate(20)->withQueryString();
-
-        return response()->json($users);
+        return response()->json(User::query()->with('role')
+            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
+            ->paginate(20)->withQueryString());
     }
 
-    // Rolelar ro'yxati (create/edit uchun)
-    public function roles()
+    public function roles(): JsonResponse
     {
-        $roles = Role::all();
-        return response()->json($roles);
+        Gate::authorize('viewAny', User::class);
+
+        return response()->json(Role::all());
     }
 
-    // Yangi user yaratish
-    public function store(Request $request)
+    public function show(User $user): JsonResponse
     {
-        $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
-            'role_id'  => 'required|exists:roles,id'
-        ]);
+        Gate::authorize('update', $user);
 
-        $validated['password'] = Hash::make($validated['password']);
-
-        $user = User::create($validated);
-
-        return response()->json([
-            'message' => 'User created successfully',
-            'user' => $user->load('role')
-        ], 201);
-    }
-
-    // Faqat bitta userni ko'rish
-    public function show(User $user)
-    {
         return response()->json($user->load('role'));
     }
 
-    // User ma'lumotlarini update qilish
-    public function update(Request $request, User $user)
+    public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email,' . $user->id,
-            'role_id'  => 'required|exists:roles,id',
-            'password' => 'nullable|min:6'
+        Gate::authorize('create', User::class);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'password' => ['required', Password::min(8)],
+            'role_id' => ['required', 'exists:roles,id'],
         ]);
 
-        if ($request->filled('password')) {
-            $validated['password'] = Hash::make($request->password);
-        } else {
-            unset($validated['password']);
-        }
+        $user = User::query()->create($data);
 
-        $user->update($validated);
-
-        return response()->json([
-            'message' => 'User updated successfully',
-            'user' => $user->load('role')
-        ]);
+        return response()->json(['message' => 'User created successfully', 'user' => $user->load('role')], 201);
     }
 
-    // Userni o'chirish
-    public function destroy(User $user)
+    public function update(Request $request, User $user): JsonResponse
     {
-        if ($user->role->name === 'superadmin') {
-            return response()->json(['error' => 'Cannot delete superadmin user.'], 403);
+        Gate::authorize('update', $user);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user)],
+            'role_id' => ['required', 'exists:roles,id'],
+            'password' => ['nullable', Password::min(8)],
+        ]);
+        if (empty($data['password'])) {
+            unset($data['password']);
         }
 
+        $user->update($data);
+
+        return response()->json(['message' => 'User updated successfully', 'user' => $user->load('role')]);
+    }
+
+    public function destroy(User $user): JsonResponse
+    {
+        Gate::authorize('delete', $user);
         $user->delete();
 
         return response()->json(['message' => 'User deleted successfully']);
     }
 
-    // Auth user profili
-    public function profile()
-{
-    $user = Auth::user()->load('phones.catalogs', 'catalogs');
+    /** GET /api/profile */
+    public function profile(Request $request): JsonResponse
+    {
+        $user = $request->user()->load(['phones' => fn ($q) => $q->connected(), 'catalogs', 'avatar']);
+        $data = $user->toArray();
+        $data['avatar_url'] = $user->avatar?->path
+            ? Storage::disk('public')->url($user->avatar->path)
+            : 'https://ui-avatars.com/api/?name='.urlencode($user->initials).'&background=0b8797&color=fff&size=128';
 
-    $data = $user->toArray();
-
-    // avatar URL qo‘shish (modelni o‘zgartirmaymiz)
-    $data['avatar_url'] = $user->avatar && $user->avatar->path
-        ? asset('storage/' . $user->avatar->path)
-        : "https://ui-avatars.com/api/?name=" . strtoupper(substr($user->name, 0, 1)) . "&background=0D8ABC&color=fff&size=128";
-
-    return response()->json($data);
-}
-
+        return response()->json($data);
+    }
 }

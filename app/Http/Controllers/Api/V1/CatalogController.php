@@ -1,167 +1,96 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api\V1;
 
-use App\Models\Catalog;
-use App\Models\User;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\CatalogRequest;
+use App\Models\Catalog;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
-class CatalogController extends Controller
+/** Catalogs over the API, in the old response shapes. */
+final class CatalogController extends Controller
 {
-    // GET /api/catalogs
-    public function index(Request $request)
+    /** GET /api/catalogs?tab=my|all&search=&per_page= */
+    public function index(Request $request): JsonResponse
     {
-        $tab     = $request->get('tab', 'my'); // my | all
-        $search  = $request->query('search');
-        $perPage = $request->query('per_page', 20);
+        $user = $request->user();
+        $search = trim((string) $request->query('search'));
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
+        $matches = fn (Builder $q) => $q->where(fn (Builder $w) => $w
+            ->where('title', 'like', "%{$search}%")
+            ->orWhereHas('user', fn (Builder $u) => $u->where('name', 'like', "%{$search}%")));
 
-        $user = Auth::user();
+        $mine = Catalog::query()->with('user:id,name')->where('user_id', $user->id)
+            ->when($search !== '', fn (Builder $q) => $q->where('title', 'like', "%{$search}%"))
+            ->latest()->paginate($perPage, ['*'], 'my_page');
 
-        // 1. O‘zimniki
-        $myQuery = Catalog::with('user:id,name')
-            ->where('user_id', $user->id);
-
-        // 2. Boshqalarniki (faqat superadmin ko‘radi)
-        $allQuery = null;
-        if ($user->hasRole('superadmin')) {
-            $allQuery = Catalog::with('user:id,name')
-                ->where('user_id', '!=', $user->id);
-        }
-
-        // Qidiruv
-        if ($search) {
-            $myQuery->where('title', 'like', "%{$search}%");
-
-            if ($allQuery) {
-                $allQuery->where(function ($q) use ($search) {
-                    $q->where('title', 'like', "%{$search}%")
-                      ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"));
-                });
-            }
-        }
-
-        $myCatalogs  = $myQuery->latest()->paginate($perPage, ['*'], 'my_page');
-        $allCatalogs = $allQuery ? $allQuery->latest()->paginate($perPage, ['*'], 'all_page') : null;
+        // Others: every catalog for a superadmin, the global ones for everybody else.
+        $all = Catalog::query()->with('user:id,name')->where('user_id', '!=', $user->id)
+            ->when(! $user->isSuperadmin(), fn (Builder $q) => $q->where('is_global', true))
+            ->when($search !== '', $matches)
+            ->latest()->paginate($perPage, ['*'], 'all_page');
 
         return response()->json([
             'success' => true,
             'data' => [
-                'tab'          => $tab,
-                'my_catalogs'  => $myCatalogs,
-                'all_catalogs' => $allCatalogs,
-                'can_see_all'  => $user->hasRole('superadmin'),
-            ]
+                'tab' => $request->query('tab', 'my'),
+                'my_catalogs' => $mine,
+                'all_catalogs' => $all,
+                'can_see_all' => $user->isSuperadmin(),
+            ],
         ]);
     }
 
-    // POST /api/catalogs
-    public function store(Request $request)
+    public function store(CatalogRequest $request): JsonResponse
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'peers' => 'nullable|array',
-            'peers.*' => 'string',
-        ]);
+        $catalog = $request->user()->catalogs()->create($request->catalogData());
 
-        $catalog = Catalog::create([
-            'title'   => $request->title,
-            'peers'   => $request->peers ?? [],
-            'user_id' => Auth::id(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Katalog muvaffaqiyatli yaratildi',
-            'data'    => $catalog->load('user')
-        ], 201);
+        return response()->json(['success' => true, 'message' => 'Katalog muvaffaqiyatli yaratildi', 'data' => $catalog->load('user:id,name')], 201);
     }
 
-    // GET /api/catalogs/{id}
-    public function show(Catalog $catalog)
+    public function show(Catalog $catalog): JsonResponse
     {
-        $this->authorizeAccess($catalog);
+        Gate::authorize('view', $catalog);
 
-        return response()->json([
-            'success' => true,
-            'data'    => $catalog->load('user')
-        ]);
+        return response()->json(['success' => true, 'data' => $catalog->load('user:id,name')]);
     }
 
-    // PUT/PATCH /api/catalogs/{id}
-    public function update(Request $request, Catalog $catalog)
+    public function update(CatalogRequest $request, Catalog $catalog): JsonResponse
     {
-        $this->authorizeAccess($catalog);
+        Gate::authorize('update', $catalog);
+        $catalog->update($request->catalogData());
 
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'peers' => 'nullable|array',
-            'peers.*' => 'string',
-        ]);
-
-        $catalog->update([
-            'title' => $request->title,
-            'peers' => $request->peers ?? [],
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Katalog yangilandi',
-            'data'    => $catalog->load('user')
-        ]);
+        return response()->json(['success' => true, 'message' => 'Katalog yangilandi', 'data' => $catalog->load('user:id,name')]);
     }
 
-    // DELETE /api/catalogs/{id}
-    public function destroy(Catalog $catalog)
+    public function destroy(Catalog $catalog): JsonResponse
     {
-        $this->authorizeAccess($catalog);
-
+        Gate::authorize('delete', $catalog);
         $catalog->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Katalog o‘chirildi'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Katalog o‘chirildi']);
     }
 
-    // POST /api/catalogs/duplicate
-    public function duplicate(Request $request)
+    /** POST /api/catalogs/duplicate {catalog_id, user_ids[]} (superadmin) */
+    public function duplicate(Request $request): JsonResponse
     {
-        $user = Auth::user();
-
-        if (!$user->hasRole('superadmin')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ruxsat yo‘q'
-            ], 403);
-        }
-
-        $request->validate([
-            'catalog_id' => 'required|exists:catalogs,id',
-            'user_ids'   => 'required|array|min:1',
-            'user_ids.*' => 'exists:users,id'
+        Gate::authorize('superadmin');
+        $data = $request->validate([
+            'catalog_id' => ['required', 'integer', 'exists:catalogs,id'],
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
-        $original = Catalog::findOrFail($request->catalog_id);
-
-        foreach ($request->user_ids as $userId) {
-            $new = $original->replicate();
-            $new->user_id = $userId;
-            $new->save();
+        $original = Catalog::query()->findOrFail($data['catalog_id']);
+        foreach (array_unique($data['user_ids']) as $userId) {
+            $original->replicate()->fill(['user_id' => $userId, 'is_global' => false])->save();
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => count($request->user_ids) . ' ta foydalanuvchiga nusxa ko‘chirildi'
-        ]);
-    }
-
-    // Helper: faqat egasi yoki superadmin ko‘ra o‘zgartira oladi
-    private function authorizeAccess(Catalog $catalog)
-    {
-        if (Auth::id() !== $catalog->user_id && !Auth::user()->hasRole('superadmin')) {
-            abort(403, 'Ruxsat yo‘q');
-        }
+        return response()->json(['success' => true, 'message' => count(array_unique($data['user_ids'])).' ta foydalanuvchiga nusxa ko‘chirildi']);
     }
 }

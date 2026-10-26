@@ -1,64 +1,41 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
 
-class AuthController extends Controller
+final class AuthController extends Controller
 {
-    // Регистрация
-    public function register(Request $request)
+    /** POST /api/login -> {user, token} */
+    public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed', // password + password_confirmation
+            'email' => ['required', 'string', 'email'],
+            'password' => ['required', 'string'],
         ]);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
-
-        $token = $user->createToken('api_token')->plainTextToken;
-
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-        ], 201);
-    }
-
-    // Логин
-    public function login(Request $request)
-    {
-        $data = $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
-
-        $user = User::where('email', $data['email'])->first();
-
-        if (!$user || !Hash::check($data['password'], $user->password)) {
-            return response()->json(['message' => __('messages.auth.invalid')], 401);
+        $user = User::query()->where('email', $data['email'])->first();
+        if ($user === null || ! Hash::check($data['password'], $user->password)) {
+            return response()->json(['status' => 'error', 'message' => __('auth.failed')], 401);
         }
 
-        $token = $user->createToken('api_token')->plainTextToken;
-
         return response()->json([
             'user' => $user,
-            'token' => $token,
+            'token' => $user->createToken('api_token')->plainTextToken,
         ]);
     }
 
-    // Логаут
-    public function logout(Request $request)
+    /** POST /api/logout: revokes the token used for this call. */
+    public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $request->user()->currentAccessToken()?->delete();
 
-        return response()->json(['message' => __('messages.auth.logged_out')]);
+        return response()->json(['message' => 'Logged out']);
     }
 }
