@@ -1,279 +1,190 @@
-@extends('layouts.app')
+@php($isAdmin = auth()->user()->isSuperadmin())
 
-@section('content')
-<div class="container" style="max-width:900px;">
+<x-layouts.app :title="__('catalogs.title')">
+    <div x-data="catalogsPage({
+        urls: @js([
+            'data' => route('catalogs.data'),
+            'users' => route('catalogs.users'),
+            'edit' => route('catalogs.edit', '__ID__'),
+            'destroy' => route('catalogs.destroy', '__ID__'),
+            'copy' => route('catalogs.copy', '__ID__'),
+            'distribute' => route('catalogs.distribute', '__ID__'),
+        ]),
+        t: @js(__('catalogs') + ['delete' => __('common.delete')]),
+        isAdmin: @js($isAdmin),
+    })">
+        <x-ui.page-header :title="__('catalogs.title')" :description="__('catalogs.description')">
+            <x-slot:actions>
+                <x-ui.button :href="route('send.create')" icon="send">{{ __('nav.send') }}</x-ui.button>
+                <x-ui.button :href="route('catalogs.create')" variant="primary" icon="plus">{{ __('catalogs.new') }}</x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
-    {{-- Tab switch --}}
-    <div class="d-flex gap-2 mb-3">
-        <a href="{{ route('catalogs.index', array_merge(request()->query(), ['tab' => 'my'])) }}"
-            class="btn btn-sm {{ $tab === 'my' ? 'btn-primary' : 'btn-light' }}">
-            Mening Cataloglarim
-        </a>
+        <section class="c-surface overflow-hidden">
+            {{-- Toolbar: tabs + search --}}
+            <div class="flex flex-col gap-3 border-b border-[var(--line)] p-3 md:flex-row md:items-center md:justify-between">
+                <div class="flex gap-1 overflow-x-auto" role="tablist">
+                    <template x-for="item in tabs" :key="item.key">
+                        <button type="button" role="tab" :aria-selected="tab === item.key" @click="switchTab(item.key)"
+                                class="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg px-3 text-[13px] font-medium transition-colors"
+                                :class="tab === item.key ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.07]'">
+                            <span x-text="item.label"></span>
+                            <span class="rounded-md px-1.5 text-[11px] font-semibold tabular-nums"
+                                  :class="tab === item.key ? 'bg-white/15 dark:bg-gray-900/10' : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06]'"
+                                  x-text="$fmt.number(counts[item.key] ?? 0)"></span>
+                        </button>
+                    </template>
+                </div>
+                <div class="relative md:w-72">
+                    <x-ui.icon name="search" class="c-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input type="search" x-model="search" data-page-search class="c-input h-9 pl-9 pr-10" placeholder="{{ __('catalogs.search_placeholder') }}" autocomplete="off">
+                    <span class="c-kbd pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" x-show="!search">/</span>
+                </div>
+            </div>
 
-        @if (auth()->user()->hasRole('superadmin'))
-            <a href="{{ route('catalogs.index', array_merge(request()->query(), ['tab' => 'all'])) }}"
-                class="btn btn-sm {{ $tab === 'all' ? 'btn-primary' : 'btn-light' }}">
-                Umumiy Cataloglar
-            </a>
-        @else
-            {{-- oddiy foydalanuvchi uchun ham "all" ko'rinadi (global kataloglar) --}}
-            <a href="{{ route('catalogs.index', array_merge(request()->query(), ['tab' => 'all'])) }}"
-                class="btn btn-sm {{ $tab === 'all' ? 'btn-primary' : 'btn-light' }}">
-                Global Cataloglar
-            </a>
-        @endif
-    </div>
+            {{-- Column labels --}}
+            <div class="c-eyebrow hidden items-center gap-4 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-2 md:flex">
+                <span class="flex-1 pl-7">{{ __('catalogs.col_title') }}</span>
+                <span class="w-28 text-right">{{ __('catalogs.col_peers') }}</span>
+                <span class="w-32">{{ __('catalogs.col_updated') }}</span>
+                <span class="w-[188px] text-right">{{ __('common.actions') }}</span>
+            </div>
 
-    {{-- Search + Create --}}
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <form method="GET" action="{{ route('catalogs.index') }}"
-            class="d-flex gap-2 align-items-center flex-grow-1 flex-sm-grow-0" style="max-width:400px;">
-            <input type="text" name="search" value="{{ request('search') }}"
-                placeholder="Search by catalog or user..." class="form-control">
-            <input type="hidden" name="tab" value="{{ $tab }}">
-            <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
-        </form>
+            {{-- Loading --}}
+            <div x-show="loading && !catalogs.length" class="divide-y divide-[var(--line)]">
+                <template x-for="i in 5" :key="i">
+                    <div class="flex items-center gap-4 px-4 py-3.5">
+                        <div class="c-skeleton h-4 w-4"></div>
+                        <div class="flex-1 space-y-2"><div class="c-skeleton h-3.5 w-1/3"></div><div class="c-skeleton h-3 w-1/5"></div></div>
+                        <div class="c-skeleton h-4 w-16"></div>
+                    </div>
+                </template>
+            </div>
 
-        <div class="ms-auto">
-            <a href="{{ route('catalogs.create') }}" class="btn btn-success btn-sm px-3">+ Create</a>
-        </div>
-    </div>
+            {{-- Empty --}}
+            <div x-show="!loading && !catalogs.length" x-cloak>
+                <div class="flex flex-col items-center justify-center px-6 py-14 text-center">
+                    <div class="mb-3 grid h-11 w-11 place-items-center rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] text-gray-400">
+                        <x-ui.icon name="list" class="h-5 w-5" />
+                    </div>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white" x-text="emptyTitle"></p>
+                    <p x-show="emptyText" class="c-muted mt-1 max-w-sm text-[13px]" x-text="emptyText"></p>
+                    <div x-show="tab === 'mine' && !search.trim()" class="mt-4">
+                        <x-ui.button :href="route('catalogs.create')" variant="primary" icon="plus">{{ __('catalogs.new') }}</x-ui.button>
+                    </div>
+                </div>
+            </div>
 
-    {{-- Determine which paginator to use (controller already provides these) --}}
-    @if ($tab === 'my')
-        @php $catalogs = $myCatalogs; @endphp
-    @else
-        @php $catalogs = $allCatalogs; @endphp
-    @endif
+            {{-- Rows --}}
+            <ul class="divide-y divide-[var(--line)] transition-opacity" :class="loading && catalogs.length && 'opacity-60'">
+                <template x-for="c in catalogs" :key="c.id">
+                    <li>
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-[var(--surface-2)]">
+                            <button type="button" class="flex min-w-0 flex-1 basis-60 items-start gap-3 text-left" @click="toggle(c)"
+                                    :aria-expanded="!!open[c.id]" :title="open[c.id] ? t.hide_peers : t.show_peers">
+                                <x-ui.icon name="chevron-right" class="c-muted mt-0.5 transition-transform" ::class="open[c.id] && 'rotate-90'" />
+                                <span class="min-w-0">
+                                    <span class="flex flex-wrap items-center gap-1.5">
+                                        <span class="c-break text-[13px] font-semibold text-gray-950 dark:text-white" x-text="c.title"></span>
+                                        <span x-show="c.is_global" class="inline-flex items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold leading-5" :class="$fmt.tone('brand')">
+                                            <x-ui.icon name="globe" class="h-3 w-3" />{{ __('catalogs.global') }}
+                                        </span>
+                                        <span x-show="c.timer_minutes" class="inline-flex items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold leading-5" :class="$fmt.tone('neutral')">
+                                            <x-ui.icon name="clock" class="h-3 w-3" /><span x-text="t.timer.replace(':time', duration(c.timer_minutes))"></span>
+                                        </span>
+                                    </span>
+                                    <span class="c-muted mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+                                        <span x-show="c.owner && !c.is_mine" class="inline-flex items-center gap-1"><x-ui.icon name="user" class="h-3 w-3" /><span x-text="c.owner?.name"></span></span>
+                                        <span class="md:hidden" x-text="$fmt.relative(c.updated_at)"></span>
+                                    </span>
+                                </span>
+                            </button>
 
-    {{-- Empty state --}}
-    @if ($catalogs->isEmpty())
-        <div class="py-4 text-center text-muted">Cataloglar mavjud emas.</div>
-    @else
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>User</th>
-                    <th>Title</th>
-                    <th>Global</th>
-                    <th>Timer</th>
-                    <th>Peers</th>
-                    <th>Yaratilgan vaqti</th>
-                    <th class="text-end">Amallar</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($catalogs as $c)
-                    <tr>
-                        {{-- Absolute index across pagination --}}
-                        <td>{{ $catalogs->firstItem() ? $catalogs->firstItem() + $loop->index : $loop->iteration }}</td>
+                            <div class="w-28 text-right text-[13px] tabular-nums">
+                                <span class="font-semibold text-gray-900 dark:text-white" x-text="$fmt.number(c.peers_count)"></span>
+                            </div>
+                            <div class="c-muted hidden w-32 text-xs md:block" x-text="$fmt.relative(c.updated_at)" :title="$fmt.dateTime(c.updated_at)"></div>
 
-                        <td>{{ $c->user->name ?? '-' }}</td>
-                        <td>{{ $c->title }}</td>
+                            <div class="ml-auto flex items-center justify-end gap-1 md:ml-0 md:w-[188px]">
+                                <template x-if="!c.is_mine">
+                                    <x-ui.button size="sm" variant="ghost" icon="copy" @click="copy(c)" ::disabled="busy">{{ __('catalogs.copy_to_me') }}</x-ui.button>
+                                </template>
+                                <template x-if="isAdmin">
+                                    <x-ui.button size="icon-sm" variant="ghost" @click="openGive(c)" :title="__('catalogs.give')"><x-ui.icon name="users" /></x-ui.button>
+                                </template>
+                                <template x-if="c.can.update">
+                                    <x-ui.button as="a" size="icon-sm" variant="ghost" ::href="urls.edit.replace('__ID__', c.id)" :title="__('common.edit')"><x-ui.icon name="edit" /></x-ui.button>
+                                </template>
+                                <template x-if="c.can.delete">
+                                    <x-ui.button size="icon-sm" variant="danger-ghost" @click="remove(c)" :title="__('common.delete')"><x-ui.icon name="trash" /></x-ui.button>
+                                </template>
+                            </div>
+                        </div>
 
-                        <td>
-                            @if($c->is_global)
-                                <span class="badge bg-success">Yes</span>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-
-                        <td>
-                            @if($c->timer_minutes && (int)$c->timer_minutes > 0)
-                                <span class="badge bg-info">{{ $c->timer_minutes }} min</span>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-
-                        <td>
-                            @if ($c->peers && count($c->peers) > 0)
-                                <div class="catalog-dropdown" style="position:relative; display:inline-block;">
-                                    <button class="btn btn-sm btn-outline-secondary">
-                                        Peers ({{ count($c->peers) }}) ▼
-                                    </button>
-                                    <div class="catalog-dropdown-content"
-                                        style="display:none; position:absolute; top:100%; left:0; background:#f8f9fa; min-width:200px; max-height:200px; overflow-y:auto; border:1px solid #ccc; border-radius:4px; padding:5px 10px; z-index:100;">
-                                        <ul style="list-style:none; margin:0; padding:0;">
-                                            @foreach ($c->peers as $peer)
-                                                <li style="padding:2px 0; border-bottom:1px solid #ddd;">{{ $peer }}</li>
-                                            @endforeach
-                                        </ul>
+                        {{-- Peers --}}
+                        <div x-show="open[c.id]" x-cloak class="border-t border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 md:pl-11">
+                            <p x-show="!c.peers.length" class="c-muted text-xs">{{ __('catalogs.no_peers') }}</p>
+                            <template x-if="open[c.id] && c.peers.length">
+                                <div>
+                                    <div class="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto">
+                                        <template x-for="peer in c.peers.slice(0, 500)" :key="peer">
+                                            <button type="button" class="inline-flex items-center rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 font-mono text-xs text-gray-700 hover:border-gray-400 dark:text-gray-300"
+                                                    @click="$copy(peer)" x-text="peer"></button>
+                                        </template>
+                                        <span x-show="c.peers.length > 500" class="c-muted self-center text-xs" x-text="t.preview_more.replace(':n', $fmt.number(c.peers.length - 500))"></span>
+                                    </div>
+                                    <div class="mt-3 flex items-center gap-2">
+                                        <x-ui.button size="sm" variant="secondary" icon="copy" @click="$copy(c.peers.join('\n'))">{{ __('catalogs.copy_peers') }}</x-ui.button>
+                                        <span class="c-muted text-xs tabular-nums" x-text="t.peers_count.replace(':n', $fmt.number(c.peers_count))"></span>
                                     </div>
                                 </div>
-                            @else
-                                <span class="text-muted">No peers</span>
-                            @endif
-                        </td>
+                            </template>
+                        </div>
+                    </li>
+                </template>
+            </ul>
 
-                        <td>{{ $c->created_at->format('Y-m-d H:i') }}</td>
+            <x-ui.pager />
+        </section>
 
-                        <td class="text-end d-flex gap-2 justify-content-end">
-
-                            {{-- Edit: faqat owner yoki superadmin --}}
-                            @if(auth()->user()->hasRole('superadmin') || $c->user_id === auth()->id())
-                                <a href="{{ route('catalogs.edit', $c->id) }}?{{ http_build_query(request()->query()) }}" class="btn btn-sm btn-primary" title="Edit">
-                                    <i class="fas fa-pen"></i>
-                                </a>
-                            @endif
-
-                            {{-- Delete: faqat owner yoki superadmin --}}
-                            @if(auth()->user()->hasRole('superadmin') || $c->user_id === auth()->id())
-                                <form action="{{ route('catalogs.destroy', $c->id) }}" method="POST" onsubmit="return confirm('Delete?')" class="d-inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    {{-- Preserve query so redirect back keeps tab/search/page --}}
-                                    <input type="hidden" name="tab" value="{{ request('tab') }}">
-                                    <input type="hidden" name="search" value="{{ request('search') }}">
-                                    <input type="hidden" name="myPage" value="{{ request('myPage') }}">
-                                    <input type="hidden" name="allPage" value="{{ request('allPage') }}">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
-                                </form>
-                            @endif
-
-                            {{-- Duplicate / Export behaviour --}}
-                            @if(auth()->user()->hasRole('superadmin'))
-                                {{-- admin: opens modal to choose users --}}
-                                <button class="btn btn-sm btn-success export-btn" data-catalog="{{ $c->id }}" title="Duplicate for other users">
-                                    <i class="fas fa-download"></i> Duplicate
-                                </button>
-                            @else
-                                {{-- normal user: duplicate immediately into their own account --}}
-                                <button class="btn btn-sm btn-success duplicate-self-btn" data-catalog="{{ $c->id }}" title="Duplicate to my account">
-                                    <i class="fas fa-download"></i> Duplicate
-                                </button>
-                            @endif
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-
-        {{-- Pagination --}}
-        @if ($catalogs->lastPage() > 1)
-            <div class="d-flex justify-content-center align-items-center gap-2 mt-2 flex-wrap">
-                @if ($catalogs->onFirstPage())
-                    <span class="btn btn-light btn-sm disabled">&laquo;</span>
-                @else
-                    <a href="{{ $catalogs->appends(request()->query())->previousPageUrl() }}" class="btn btn-light btn-sm">&laquo;</a>
-                @endif
-
-                @for ($i = max(1, $catalogs->currentPage() - 2); $i <= min($catalogs->lastPage(), $catalogs->currentPage() + 2); $i++)
-                    @if ($i == $catalogs->currentPage())
-                        <span class="btn btn-primary btn-sm">{{ $i }}</span>
-                    @else
-                        <a href="{{ $catalogs->appends(request()->query())->url($i) }}" class="btn btn-light btn-sm">{{ $i }}</a>
-                    @endif
-                @endfor
-
-                @if ($catalogs->hasMorePages())
-                    <a href="{{ $catalogs->appends(request()->query())->nextPageUrl() }}" class="btn btn-light btn-sm">&raquo;</a>
-                @else
-                    <span class="btn btn-light btn-sm disabled">&raquo;</span>
-                @endif
-            </div>
-        @endif
-    @endif
-
-</div>
-
-{{-- Hidden form for non-admin immediate duplicate (no-AJAX) --}}
-<form id="duplicateSelfForm" method="POST" action="{{ route('catalogs.duplicate') }}" style="display:none;">
-    @csrf
-    <input type="hidden" name="catalog_id" id="dupCatalogId" value="">
-    <input type="hidden" name="user_ids[]" value="{{ auth()->id() }}">
-</form>
-
-{{-- Export Modal (admin) --}}
-<div id="exportModal"
-    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:200; justify-content:center; align-items:center;">
-    <div
-        style="background:#fff; padding:20px; border-radius:8px; min-width:300px; max-width:400px; max-height:400px; min-height:400px; display:flex; flex-direction:column;">
-        <h5>Nusxa oluvchi</h5>
-        <input type="text" id="userSearch" placeholder="Find user..."
-            style="margin:10px 0; padding:5px; border:1px solid #ccc; border-radius:4px;">
-        <form id="exportForm" method="POST" action="{{ route('catalogs.duplicate') }}"
-            style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
-            @csrf
-            <input type="hidden" name="catalog_id" id="exportCatalogId" value="">
-            <div id="userList"
-                style="overflow-y:auto; flex:1; min-height:50px; border:1px solid #ccc; border-radius:4px; padding:5px;">
-                @foreach ($users as $u)
-                    <div style="padding:5px 0;">
-                        <input type="checkbox" id="user-{{ $u->id }}" name="user_ids[]" value="{{ $u->id }}">
-                        <label for="user-{{ $u->id }}">{{ $u->name }}</label>
+        {{-- Give copies to users (superadmin) --}}
+        @if ($isAdmin)
+            <x-ui.modal show="give" :title="__('catalogs.give_title')" width="max-w-md">
+                <p class="c-muted mb-4 text-[13px]" x-text="t.give_text.replace(':title', giveCatalog?.title ?? '')"></p>
+                <div class="relative mb-3">
+                    <x-ui.icon name="search" class="c-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input type="search" x-ref="userSearch" x-model="userSearch" class="c-input pl-9" placeholder="{{ __('catalogs.users_search') }}" autocomplete="off">
+                </div>
+                <div class="mb-2 flex items-center justify-between text-xs">
+                    <span class="c-muted tabular-nums" x-text="t.users_selected.replace(':n', picked.length)"></span>
+                    <div class="flex gap-1">
+                        <x-ui.button size="sm" variant="ghost" @click="pickAll()">{{ __('send.select_all') }}</x-ui.button>
+                        <x-ui.button size="sm" variant="ghost" @click="picked = []" ::disabled="!picked.length">{{ __('send.select_none') }}</x-ui.button>
                     </div>
-                @endforeach
-            </div>
-            <div class="mt-3 d-flex justify-content-end gap-2">
-                <button type="button" id="exportCancel" class="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" class="btn btn-success btn-sm">Duplicate</button>
-            </div>
-        </form>
+                </div>
+                <div class="max-h-72 overflow-y-auto rounded-xl border border-[var(--line)]">
+                    <div x-show="users === null" class="space-y-2 p-3"><div class="c-skeleton h-8"></div><div class="c-skeleton h-8"></div><div class="c-skeleton h-8"></div></div>
+                    <ul class="divide-y divide-[var(--line)]">
+                        <template x-for="u in filteredUsers" :key="u.id">
+                            <li>
+                                <label class="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-[var(--surface-2)]">
+                                    <input type="checkbox" class="c-check" :checked="picked.includes(u.id)" @change="pick(u)">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-[13px] font-medium text-gray-900 dark:text-white" x-text="u.name"></span>
+                                        <span class="c-muted block truncate text-xs" x-text="u.email"></span>
+                                    </span>
+                                    <span x-show="giveCatalog && giveCatalog.owner?.id === u.id" class="c-muted text-[11px]">{{ __('catalogs.col_owner') }}</span>
+                                </label>
+                            </li>
+                        </template>
+                    </ul>
+                    <p x-show="users !== null && !filteredUsers.length" class="c-muted px-3 py-6 text-center text-xs">{{ __('catalogs.users_empty') }}</p>
+                </div>
+                <x-slot:footer>
+                    <x-ui.button variant="ghost" @click="give = false">{{ __('common.cancel') }}</x-ui.button>
+                    <x-ui.button variant="primary" icon="users" @click="submitGive()" ::disabled="busy || !picked.length">{{ __('catalogs.give_action') }}</x-ui.button>
+                </x-slot:footer>
+            </x-ui.modal>
+        @endif
     </div>
-</div>
-
-{{-- Scripts --}}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Catalog dropdown hover
-    document.querySelectorAll('.catalog-dropdown').forEach(function(drop) {
-        const btn = drop.querySelector('button');
-        const content = drop.querySelector('.catalog-dropdown-content');
-        if (btn && content) {
-            btn.addEventListener('mouseenter', () => content.style.display = 'block');
-            drop.addEventListener('mouseleave', () => content.style.display = 'none');
-        }
-    });
-
-    // Export modal (admin)
-    const modal = document.getElementById('exportModal');
-    const exportCatalogId = document.getElementById('exportCatalogId');
-    const userSearch = document.getElementById('userSearch');
-    const userList = document.getElementById('userList');
-
-    document.querySelectorAll('.export-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            exportCatalogId.value = btn.dataset.catalog;
-            modal.style.display = 'flex';
-            userSearch.value = '';
-            Array.from(userList.children).forEach(div => div.style.display = 'block');
-        });
-    });
-
-    document.getElementById('exportCancel').addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
-
-    userSearch.addEventListener('input', () => {
-        const search = userSearch.value.toLowerCase();
-        Array.from(userList.children).forEach(div => {
-            const label = div.querySelector('label').textContent.toLowerCase();
-            div.style.display = label.includes(search) ? 'block' : 'none';
-        });
-    });
-
-    // Non-admin immediate duplicate (no-AJAX): use hidden form submit
-    document.querySelectorAll('.duplicate-self-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const catalogId = btn.dataset.catalog;
-            if (!confirm('Bu catalogni oʻzingizga nusxalamoqchimisiz?')) return;
-            document.getElementById('dupCatalogId').value = catalogId;
-            document.getElementById('duplicateSelfForm').submit();
-        });
-    });
-
-    // Toast (optional)
-    const toast = document.getElementById("toastMessage");
-    if (toast) {
-        setTimeout(() => { toast.style.opacity = "1"; }, 50);
-        setTimeout(() => { toast.style.opacity = "0"; }, 3000);
-        setTimeout(() => { if (toast) toast.remove(); }, 3500);
-    }
-});
-</script>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" />
-@endsection
+</x-layouts.app>
