@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Monitoring\ApiLogRecorder;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,11 +15,21 @@ use Throwable;
 /**
  * Counts every API call per day, endpoint and user (table api_usage), after the
  * response is sent. The monitoring page shows which endpoints are alive.
+ * Calls of the logged methods (POST) also keep their body and response (api_logs).
  */
 final class RecordApiUsage
 {
+    public function __construct(private readonly ApiLogRecorder $log) {}
+
     public function handle(Request $request, Closure $next): Response
     {
+        if ($this->log->shouldLog($request)) {
+            $request->attributes->set('api_log', [
+                'body' => $this->log->requestBody($request),
+                'started_at' => microtime(true),
+            ]);
+        }
+
         return $next($request);
     }
 
@@ -52,6 +63,10 @@ final class RecordApiUsage
             );
         } catch (Throwable $e) {
             Log::warning('API usage not recorded', ['exception' => $e->getMessage()]);
+        }
+
+        if ($logged = $request->attributes->get('api_log')) {
+            $this->log->record($request, $response, $logged['body'], $logged['started_at']);
         }
     }
 }

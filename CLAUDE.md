@@ -40,7 +40,8 @@ app/
                             Madeline/* (real implementation), Errors/ErrorMap (RPC error -> key + kind),
                             SessionStore, ProcessLock, Phone
   Monitoring/               EventRecorder (system_events journal), AlertNotifier (Telegram bot),
-                            QueueHealth, SystemOverview
+                            QueueHealth, SystemOverview, ApiLogRecorder (api_logs: POST body + response,
+                            secrets masked; Monitoring -> API)
   Queries/                  read side: GroupList, DeliveryStats (analytics)
   Settings/                 runtime settings (app_settings over config/telegram.php defaults)
   ChatLogs/                 chat history copy (API fetch-messages / chat-logs)

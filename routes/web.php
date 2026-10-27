@@ -6,6 +6,7 @@ use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\GroupController;
 use App\Http\Controllers\Web\LocaleController;
 use App\Http\Controllers\Web\Monitoring\AnalyticsController;
+use App\Http\Controllers\Web\Monitoring\ApiLogController;
 use App\Http\Controllers\Web\Monitoring\ApiUsageController;
 use App\Http\Controllers\Web\Monitoring\EventController;
 use App\Http\Controllers\Web\Monitoring\LogController;
@@ -99,6 +100,8 @@ Route::middleware('auth')->group(function () {
             Route::get('analytics/data', [AnalyticsController::class, 'data'])->name('analytics.data');
 
             Route::get('api', ApiUsageController::class)->name('api');
+            Route::get('api/logs', [ApiLogController::class, 'index'])->name('api.logs');
+            Route::get('api/logs/{log}', [ApiLogController::class, 'show'])->name('api.logs.show');
             Route::get('logs', LogController::class)->name('logs');
 
             Route::get('settings', [SettingsController::class, 'edit'])->name('settings');

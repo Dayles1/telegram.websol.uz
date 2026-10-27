@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ApiLog;
 use App\Models\Catalog;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,6 +22,30 @@ class ApiTest extends TestCase
 
         $this->withToken($token)->getJson('/api/profile')->assertOk()->assertJsonPath('id', $user->id);
         $this->postJson('/api/login', ['email' => $user->email, 'password' => 'wrong'])->assertUnauthorized();
+    }
+
+    public function test_post_calls_are_logged_with_body_and_response_and_secrets_masked(): void
+    {
+        $user = $this->user();
+
+        $token = $this->postJson('/api/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->json('token');
+        $this->withToken($token)->getJson('/api/profile')->assertOk();
+        $this->withToken($token)->postJson('/api/catalogs', ['title' => 'Shops', 'peers' => ['@shop']])->assertCreated();
+
+        $logs = ApiLog::query()->orderBy('id')->get();
+        $this->assertSame(['api/login', 'api/catalogs'], $logs->pluck('endpoint')->all(), 'GET calls are not logged');
+
+        [$login, $catalog] = $logs;
+        $this->assertSame(['email' => $user->email, 'password' => '***'], json_decode($login->request_body, true));
+        $this->assertSame('***', json_decode($login->response_body, true)['token']);
+        $this->assertStringNotContainsString($token, $login->response_body);
+        $this->assertNull($login->user_id);
+        $this->assertSame(200, $login->status);
+
+        $this->assertSame($user->id, $catalog->user_id);
+        $this->assertSame(201, $catalog->status);
+        $this->assertSame(['@shop'], json_decode($catalog->request_body, true)['peers']);
+        $this->assertTrue(json_decode($catalog->response_body, true)['success']);
     }
 
     public function test_phones_list_has_the_old_shape(): void

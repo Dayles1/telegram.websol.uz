@@ -138,4 +138,127 @@
             </section>
         </div>
     </div>
+
+    {{-- Request log: body and response of the logged methods (POST) --}}
+    <section class="c-surface mt-5 min-w-0 overflow-hidden"
+             x-data="apiLogsPage({ urls: @js(['data' => route('monitoring.api.logs'), 'show' => route('monitoring.api.logs.show', '__ID__')]), methodTones: @js($methodTones) })">
+        <div class="c-surface__head">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ __('monitoring.api.log.title') }} <span class="c-muted font-normal tabular-nums" x-text="$fmt.number(meta.total)"></span>
+            </h2>
+            <span class="c-muted inline-flex items-center gap-2 text-xs">
+                <span class="c-dot is-live text-success-500"></span> {{ __('monitoring.events.auto_refresh') }}
+            </span>
+        </div>
+        <p class="c-muted border-b border-[var(--line)] px-4 py-2.5 text-xs">{{ __('monitoring.api.log.hint', ['methods' => $logMethods, 'days' => $logDays]) }}</p>
+
+        {{-- Filters --}}
+        <div class="flex flex-col gap-2 border-b border-[var(--line)] p-3 lg:flex-row lg:items-center">
+            <div class="relative min-w-0 flex-1">
+                <x-ui.icon name="search" class="c-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
+                <input type="search" x-model="filters.search" class="c-input h-9 pl-9" placeholder="{{ __('monitoring.api.log.search') }}" autocomplete="off">
+            </div>
+            <select x-model="filters.endpoint" class="c-input h-9 lg:w-64" aria-label="{{ __('monitoring.api.endpoint') }}">
+                <option value="">{{ __('monitoring.api.log.all_endpoints') }}</option>
+                <template x-for="e in endpoints" :key="e">
+                    <option :value="e" :selected="e === filters.endpoint" x-text="e"></option>
+                </template>
+            </select>
+            <select x-model="filters.user_id" class="c-input h-9 lg:w-52" aria-label="{{ __('monitoring.api.log.user') }}">
+                <option value="">{{ __('monitoring.api.log.all_users') }}</option>
+                <template x-for="u in users" :key="u.id">
+                    <option :value="u.id" :selected="String(u.id) === String(filters.user_id)" x-text="u.name"></option>
+                </template>
+            </select>
+            <div class="c-scroll-x shrink-0">
+                <div class="inline-flex gap-0.5 rounded-xl border border-[var(--line-strong)] p-0.5">
+                    @foreach (['' => __('monitoring.api.log.status_all'), 'ok' => __('monitoring.api.log.status_ok'), 'errors' => __('monitoring.api.log.status_errors')] as $value => $label)
+                        <button type="button" class="h-8 rounded-lg px-3 text-xs font-medium whitespace-nowrap transition-colors"
+                                :class="filters.status === @js($value) ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.07] dark:hover:text-white'"
+                                @click="filters.status = @js($value)">{{ $label }}</button>
+                    @endforeach
+                </div>
+            </div>
+            <button type="button" x-show="filtered" x-cloak class="c-muted shrink-0 text-xs hover:text-gray-900 dark:hover:text-white" @click="reset()">{{ __('common.reset') }}</button>
+        </div>
+
+        <div x-show="loading" class="space-y-3 p-4">
+            <template x-for="i in 4"><div class="c-skeleton h-10"></div></template>
+        </div>
+
+        <div x-show="!loading && !logs.length" x-cloak>
+            <x-ui.empty icon="code" :title="__('monitoring.api.log.empty_title')" :text="__('monitoring.api.log.empty_text', ['methods' => $logMethods])" x-show="!filtered" />
+            <x-ui.empty icon="search" :title="__('monitoring.api.log.empty_filtered')" x-show="filtered" />
+        </div>
+
+        <div x-show="!loading && logs.length" x-cloak class="c-scroll-x" :class="refreshing && 'opacity-70 transition-opacity'">
+            <table class="c-table">
+                <thead>
+                    <tr>
+                        <th>{{ __('monitoring.api.log.time') }}</th>
+                        <th>{{ __('monitoring.api.endpoint') }}</th>
+                        <th>{{ __('monitoring.api.log.status') }}</th>
+                        <th>{{ __('monitoring.api.log.user') }}</th>
+                        <th class="text-right">{{ __('monitoring.api.log.duration') }}</th>
+                        <th>{{ __('monitoring.api.log.request') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="l in logs" :key="l.id">
+                        <tr class="c-row cursor-pointer" @click="show(l)" @keydown.enter="show(l)" tabindex="0">
+                            <td class="whitespace-nowrap"><span :title="$fmt.dateTime(l.created_at)" x-text="$fmt.relative(l.created_at)"></span></td>
+                            <td>
+                                <span class="inline-flex items-center gap-2">
+                                    <span class="inline-flex w-14 shrink-0 justify-center rounded-md px-2 py-0.5 font-mono text-[11px] font-semibold leading-5" :class="$fmt.tone(methodTones[l.method])" x-text="l.method"></span>
+                                    <span class="min-w-0">
+                                        <span class="c-break block font-mono text-xs text-gray-900 dark:text-white" x-text="l.endpoint"></span>
+                                        <span x-show="l.path !== l.endpoint" class="c-muted c-break block font-mono text-[11px]" x-text="l.path"></span>
+                                    </span>
+                                </span>
+                            </td>
+                            <td><span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums leading-5" :class="$fmt.tone(l.tone)" x-text="l.status"></span></td>
+                            <td class="text-xs"><span x-text="l.user ?? @js(__('monitoring.api.log.no_token'))" :class="!l.user && 'c-muted'"></span></td>
+                            <td class="c-muted text-right text-xs tabular-nums whitespace-nowrap" x-text="@js(__('monitoring.api.log.ms')).replace(':n', $fmt.number(l.duration_ms))"></td>
+                            <td class="max-w-[320px]"><span class="c-muted line-clamp-1 font-mono text-[11px] break-all" x-text="l.preview ?? '—'"></span></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <x-ui.pager />
+
+        {{-- One call --}}
+        <x-ui.modal show="open" :title="__('monitoring.api.log.detail')" width="max-w-4xl">
+            <template x-if="detail">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex rounded-md px-2 py-0.5 font-mono text-[11px] font-semibold leading-5" :class="$fmt.tone(methodTones[detail.method])" x-text="detail.method"></span>
+                        <span class="c-break font-mono text-[13px] text-gray-900 dark:text-white" x-text="detail.path"></span>
+                        <span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums leading-5" :class="$fmt.tone(detail.tone)" x-text="detail.status"></span>
+                    </div>
+
+                    <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
+                        <div><dt class="c-eyebrow">{{ __('monitoring.api.log.time') }}</dt><dd class="tabular-nums" x-text="$fmt.dateTime(detail.created_at)"></dd></div>
+                        <div><dt class="c-eyebrow">{{ __('monitoring.api.log.user') }}</dt><dd x-text="detail.user ?? @js(__('monitoring.api.log.no_token'))"></dd></div>
+                        <div><dt class="c-eyebrow">{{ __('monitoring.api.log.duration') }}</dt><dd class="tabular-nums" x-text="@js(__('monitoring.api.log.ms')).replace(':n', $fmt.number(detail.duration_ms))"></dd></div>
+                        <div><dt class="c-eyebrow">{{ __('monitoring.api.log.ip') }}</dt><dd class="font-mono text-xs" x-text="detail.ip ?? '—'"></dd></div>
+                        <div class="col-span-2 sm:col-span-4"><dt class="c-eyebrow">{{ __('monitoring.api.log.user_agent') }}</dt><dd class="c-break c-muted text-xs" x-text="detail.user_agent || '—'"></dd></div>
+                    </dl>
+
+                    @foreach (['request_body' => __('monitoring.api.log.request'), 'response_body' => __('monitoring.api.log.response')] as $field => $label)
+                        <div class="overflow-hidden rounded-xl border border-[var(--line)]">
+                            <div class="flex items-center justify-between gap-3 border-b border-[var(--line)] px-3 py-2">
+                                <span class="c-eyebrow">{{ $label }}</span>
+                                <button type="button" x-show="detail.{{ $field }}" class="c-muted hover:text-gray-900 dark:hover:text-white" @click="$copy(pretty(detail.{{ $field }}))" title="{{ __('monitoring.copy') }}"><x-ui.icon name="copy" class="h-3.5 w-3.5" /></button>
+                            </div>
+                            <div x-show="detailLoading" class="p-3"><div class="c-skeleton h-16"></div></div>
+                            <pre x-show="!detailLoading && detail.{{ $field }}" class="c-break max-h-[40vh] overflow-auto whitespace-pre-wrap bg-[var(--surface-2)] p-3 font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200" x-text="pretty(detail.{{ $field }})"></pre>
+                            <p x-show="!detailLoading && !detail.{{ $field }}" class="c-muted px-3 py-4 text-center text-xs">{{ __('monitoring.api.log.empty_body') }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </template>
+        </x-ui.modal>
+    </section>
 </x-layouts.app>

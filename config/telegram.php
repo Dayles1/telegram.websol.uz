@@ -98,6 +98,17 @@ return [
     ],
 
     /*
+    | API request log (Monitoring -> API): body and response of every call with one
+    | of these methods. Passwords, tokens and login codes are masked; bodies longer
+    | than max_body bytes are cut. monitoring:prune deletes rows older than keep_days.
+    */
+    'api_log' => [
+        'methods' => ['POST'],
+        'max_body' => 65536,
+        'keep_days' => 30,
+    ],
+
+    /*
     | Token for the external statistics dashboard (header X-Stats-Token).
     */
     'stats_token' => env('STATS_API_TOKEN'),

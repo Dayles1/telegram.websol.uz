@@ -6,6 +6,7 @@ use App\Enums\AccountStatus;
 use App\Enums\EventKind;
 use App\Enums\MessageStatus;
 use App\Jobs\SendAccountMessages;
+use App\Models\ApiLog;
 use App\Models\Catalog;
 use App\Models\MessageGroup;
 use App\Models\SystemEvent;
@@ -91,6 +92,8 @@ class MonitoringPagesTest extends TestCase
             'analytics data' => ['monitoring.analytics.data'],
             'api usage' => ['monitoring.api'],
             'api usage 7 days' => ['monitoring.api', ['days' => 7]],
+            'api log' => ['monitoring.api.logs'],
+            'api log filtered' => ['monitoring.api.logs', ['status' => 'errors', 'search' => 'nothing-matches-this']],
             'logs' => ['monitoring.logs'],
             'logs filtered' => ['monitoring.logs', ['level' => 'ERROR', 'search' => 'nothing-matches-this']],
             'settings' => ['monitoring.settings'],
@@ -335,6 +338,50 @@ class MonitoringPagesTest extends TestCase
             ->assertSee('api/v1/phones')
             ->assertSee('25%')
             ->assertSee($this->user->name);
+    }
+
+    public function test_api_log_lists_calls_filters_them_and_shows_bodies(): void
+    {
+        $ok = ApiLog::query()->create([
+            'method' => 'POST', 'endpoint' => 'api/tg/send', 'path' => 'api/tg/send', 'user_id' => $this->user->id,
+            'status' => 200, 'duration_ms' => 42, 'request_body' => '{"message":"Salom"}', 'response_body' => '{"success":true}',
+        ]);
+        $failed = ApiLog::query()->create([
+            'method' => 'POST', 'endpoint' => 'api/catalogs', 'path' => 'api/catalogs', 'user_id' => null,
+            'status' => 422, 'request_body' => '{"title":""}', 'response_body' => '{"status":"error"}',
+        ]);
+
+        $this->actingAs($this->admin)->getJson(route('monitoring.api.logs'))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('logs.0.id', $failed->id)
+            ->assertJsonPath('logs.1.user', $this->user->name)
+            ->assertJsonPath('logs.1.preview', '{"message":"Salom"}')
+            ->assertJsonMissingPath('logs.0.response_body')
+            ->assertJsonPath('endpoints', ['api/catalogs', 'api/tg/send'])
+            ->assertJsonPath('users.0.id', $this->user->id);
+
+        $this->getJson(route('monitoring.api.logs', ['status' => 'errors']))->assertJsonPath('meta.total', 1)->assertJsonPath('logs.0.id', $failed->id);
+        $this->getJson(route('monitoring.api.logs', ['endpoint' => 'api/tg/send']))->assertJsonPath('meta.total', 1);
+        $this->getJson(route('monitoring.api.logs', ['user_id' => $this->user->id]))->assertJsonPath('logs.0.id', $ok->id);
+        $this->getJson(route('monitoring.api.logs', ['search' => 'Salom']))->assertJsonPath('meta.total', 1);
+
+        $this->getJson(route('monitoring.api.logs.show', $ok))
+            ->assertOk()
+            ->assertJsonPath('request_body', '{"message":"Salom"}')
+            ->assertJsonPath('response_body', '{"success":true}');
+
+        $this->actingAs($this->user)->getJson(route('monitoring.api.logs.show', $ok))->assertForbidden();
+    }
+
+    public function test_prune_deletes_old_api_log_rows(): void
+    {
+        ApiLog::query()->create(['method' => 'POST', 'endpoint' => 'api/login', 'path' => 'api/login', 'status' => 200, 'created_at' => now()->subDays(31)]);
+        $fresh = ApiLog::query()->create(['method' => 'POST', 'endpoint' => 'api/login', 'path' => 'api/login', 'status' => 200]);
+
+        $this->artisan('monitoring:prune')->assertSuccessful();
+
+        $this->assertSame([$fresh->id], ApiLog::query()->pluck('id')->all());
     }
 
     public function test_logs_page_shows_entries_newest_first_and_filters(): void

@@ -12,7 +12,7 @@ use Illuminate\View\View;
 
 /**
  * Which API endpoints are called, by whom, and which are never called (the
- * candidates for deletion).
+ * candidates for deletion). The request log below comes from ApiLogController.
  */
 final class ApiUsageController extends Controller
 {
@@ -40,6 +40,9 @@ final class ApiUsageController extends Controller
 
         $tracking = DB::table('api_usage')->min('day');
 
-        return view('monitoring.api-usage', compact('used', 'never', 'days', 'tracking'));
+        $logMethods = implode(', ', (array) config('telegram.api_log.methods'));
+        $logDays = (int) config('telegram.api_log.keep_days');
+
+        return view('monitoring.api-usage', compact('used', 'never', 'days', 'tracking', 'logMethods', 'logDays'));
     }
 }
