@@ -8,6 +8,17 @@
 `telegramWebsol`. На сервере нужна **одна** программа supervisord (`queue:work`, см.
 `deploy/supervisor.conf`). Cron не нужен: минутную проверку ставит в очередь сам воркер.
 
+## Сервер
+
+- ISPmanager: проект в `/var/www/www-root/data/www/telegram.websol.uz`, владелец файлов и
+  пользователь PHP — **`www-root`** (не `www-data`). PHP: `/opt/php83/bin/php`.
+- `artisan` на сервере запускать от него: `sudo -u www-root php artisan ...`. Команда от root
+  создаёт в `storage/` файлы (дневной лог), в которые воркер потом не может писать.
+- Никогда `chown www-data` на `storage`: воркер падает с `Permission denied`, очередь стоит.
+- Код заливается файлами (не `git pull`). Программа supervisor на сервере исторически называлась
+  `websol-telegram-worker` (один процесс); нужна `telegram-websol` из `deploy/supervisor.conf`
+  (4 процесса, `startsecs=0`), старую — убрать.
+
 ## 0. Один раз до выкатки
 
 1. **Бэкап базы** (обязательно, хранить вне сервера):
@@ -36,13 +47,13 @@
 ## 1. Выкатка
 
 ```bash
-cd /var/www/telegram.websol.uz
+cd /var/www/www-root/data/www/telegram.websol.uz
 php artisan down --retry=60
 
 # остановить ТОЛЬКО процессы этого проекта (на сервере есть чужие воркеры: не "stop all")
 supervisorctl status | grep -i websol        # какие программы у этого проекта
 supervisorctl stop <имя>:*                  # каждую программу websol из списка выше
-pkill -f "/var/www/telegram.websol.uz/artisan telegram:" || true  # старые nohup-процессы отправки
+pkill -f "/var/www/www-root/data/www/telegram.websol.uz/artisan telegram:" || true  # старые nohup-процессы отправки
 
 git fetch && git checkout <релиз>            # или залить файлы
 composer install --no-dev --optimize-autoloader
@@ -68,7 +79,7 @@ php artisan up
 ```
 
 Cron для этого проекта не нужен. Если в `crontab -l` есть строка
-`cd /var/www/telegram.websol.uz && php artisan schedule:run` — удалить её (`crontab -e`).
+`cd /var/www/www-root/data/www/telegram.websol.uz && php artisan schedule:run` — удалить её (`crontab -e`).
 
 Очередь теперь одна и называется `telegramWebsol` (по имени проекта видно, чьи это воркеры). Задачи старой версии в очередях `telegram` / `default` новые воркеры не берут —
 это классы, которых больше нет. Посмотреть: `SELECT queue, COUNT(*) FROM jobs GROUP BY queue;`,
@@ -118,7 +129,7 @@ Cron для этого проекта не нужен. Если в `crontab -l` 
 ## Переход с двух программ и cron на одну (если уже выкатывали версию с `telegramWebsol-sending`)
 
 ```bash
-cd /var/www/telegram.websol.uz
+cd /var/www/www-root/data/www/telegram.websol.uz
 supervisorctl stop 'telegram-websol-queue:*' 'telegram-websol-sending:*'
 git pull                                   # или залить файлы
 # .env: DB_QUEUE=telegramWebsol, убрать TELEGRAM_QUEUE и TELEGRAM_SEND_QUEUE, добавить TELEGRAM_SEND_SLOTS=3
@@ -142,6 +153,17 @@ crontab -e                                       # удалить строку s
 3. Аккаунт отправителя: статус «Подключён», нет активной паузы (flood), не исчерпан дневной лимит.
 4. Зависший unique-лок задачи аккаунта минутная проверка снимает сама, если задачи этого аккаунта
    нет в таблице `jobs`.
+5. `RUNNING`, но `uptime` всё время несколько секунд: смотреть, как выходит процесс —
+   `grep websol /var/log/supervisor/supervisord.log | tail`.
+   `exit status 0; expected` — норма (процесс, открывавший сессию Telegram, выходит после задачи).
+   `exit status 1; not expected` — падает: `supervisorctl tail -5000 <программа> stdout`.
+   `Permission denied` на `storage/logs` или `storage/framework/telegram-locks` — у `storage` не тот
+   владелец (2026-10-27 так встала вся очередь): `chown -R www-root:www-root storage bootstrap/cache`.
+6. Сколько задач и почему ждут: `FetchChatHistory` после `chat-logs:refetch` стоят с задержкой
+   по минуте на чат — это не зависание.
+   ```bash
+   sudo -u www-root php artisan tinker --execute='dump(DB::table("jobs")->selectRaw("queue, count(*) n, sum(available_at > unix_timestamp()) delayed, sum(reserved_at is not null) reserved")->groupBy("queue")->get());'
+   ```
 
 ## 3. Откат
 
