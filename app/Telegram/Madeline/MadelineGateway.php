@@ -79,7 +79,7 @@ final class MadelineGateway implements TelegramGateway
         }
         $this->endWorkerAfterJob();
 
-        return new API($sessionPath, $this->settings->make());
+        return new API($sessionPath, $this->settings->make(SessionStore::phoneOf($sessionPath)));
     }
 
     /**

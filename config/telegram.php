@@ -15,6 +15,16 @@ return [
     'device_model' => env('TELEGRAM_DEVICE_MODEL', 'Server'),
 
     /*
+    | The language a session tells Telegram (lang_code and system_lang_code), by the
+    | phone's country code: an Uzbek number on an English device looks odd. Longest
+    | prefix wins; sent on every connection, so a change reaches existing sessions.
+    */
+    'languages' => [
+        'by_phone_prefix' => ['998' => 'uz', '992' => 'ru', '996' => 'ru', '7' => 'ru'],
+        'default' => 'en',
+    ],
+
+    /*
     | The only superadmin. Anyone else with the superadmin role is treated as a
     | plain user (see App\Models\User::isSuperadmin); admins see their own and
     | plain users' accounts, never another admin's.
@@ -73,8 +83,9 @@ return [
         // on the queue. Its timeout is max_runtime + 120, which must stay below the queue's
         // retry_after (DB_QUEUE_RETRY_AFTER, 400), or a running job would be started twice.
         'max_runtime' => 240,
-        // How many accounts send at the same time. The queue's supervisor program needs at
-        // least one process more (numprocs), so a login code never waits behind the sends.
+        // How many long Telegram jobs (sends, chat history; App\Jobs\WorkerSlots) run at the same
+        // time. The queue's supervisor program needs at least one process more (numprocs), so a
+        // login code never waits behind them.
         'send_slots' => (int) env('TELEGRAM_SEND_SLOTS', 3),
         'stale_claim_minutes' => 10, // a row "sending" longer than this goes back to pending
         'max_attempts' => 3,

@@ -48,6 +48,12 @@ final class SessionStore
         return $this->root().DIRECTORY_SEPARATOR.Phone::digits($phone)."_user_{$userId}.madeline";
     }
 
+    /** The phone a session file belongs to, from its name ("{digits}_user_{id}", old "+{digits}_add_user_{id}"). */
+    public static function phoneOf(string $path): ?string
+    {
+        return preg_match('/^\+?(\d{7,15})_/', basename($path), $m) === 1 ? '+'.$m[1] : null;
+    }
+
     public function exists(?string $path): bool
     {
         return $path !== null && $path !== '' && file_exists($path);
