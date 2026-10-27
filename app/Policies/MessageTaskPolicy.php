@@ -16,6 +16,6 @@ final class MessageTaskPolicy
 
     public function view(User $user, MessageTask $task): bool
     {
-        return $task->sender?->user_id === $user->id;
+        return $user->oversees($task->sender?->user);
     }
 }

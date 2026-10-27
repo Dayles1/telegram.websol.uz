@@ -31,7 +31,7 @@ export default function sendPage({ phones, catalogs, selectedPhone, admin, urls,
         phoneId: preselected?.id ?? null,
         picking: preselected === null,
         phoneSearch: '',
-        phoneScope: 'all', // superadmin: every account or only their own
+        phoneScope: 'all', // admin / superadmin: every account they oversee or only their own
         showNotReady: false,
         selected: [],
         search: '',
@@ -134,7 +134,7 @@ export default function sendPage({ phones, catalogs, selectedPhone, admin, urls,
             });
         },
 
-        /** The superadmin sees accounts grouped by owner, their own first; a user sees one plain list. */
+        /** An admin or the superadmin sees accounts grouped by owner, their own first; a user sees one plain list. */
         get phoneGroups() {
             if (!admin) return [{ key: 'all', label: null, phones: this.matchedPhones }];
 

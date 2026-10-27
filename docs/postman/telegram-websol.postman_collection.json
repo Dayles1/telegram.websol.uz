@@ -315,7 +315,7 @@
                 "phones"
               ]
             },
-            "description": "`data.my_phones.items[]` — o'z akkauntlaringiz. Yuborish uchun `status` = `authorized` bo'lishi kerak. Superadmin `others_phones` ni ham ko'radi."
+            "description": "`data.my_phones.items[]` — o'z akkauntlaringiz. Yuborish uchun `status` = `authorized` bo'lishi kerak. `others_phones`: admin — oddiy userlarning akkauntlari (boshqa adminlarniki emas), superadmin — hammaniki."
           },
           "response": [
             {
@@ -2563,7 +2563,7 @@
           ]
         },
         {
-          "name": "Foydalanuvchilarga nusxalash (superadmin)",
+          "name": "Foydalanuvchilarga nusxalash (admin)",
           "request": {
             "method": "POST",
             "header": [
@@ -3143,8 +3143,8 @@
       ]
     },
     {
-      "name": "9. Foydalanuvchilar (superadmin)",
-      "description": "Faqat superadmin tokeni bilan.",
+      "name": "9. Foydalanuvchilar (admin)",
+      "description": "Admin yoki superadmin tokeni bilan. Admin boshqa adminni o'zgartira olmaydi (403).",
       "item": [
         {
           "name": "Ro'yxat",

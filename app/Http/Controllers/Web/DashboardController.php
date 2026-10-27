@@ -31,14 +31,14 @@ final class DashboardController extends Controller
 
         return response()->json([
             'active' => MessageGroup::query()->visibleTo($user)->active()->count(),
-            'problems' => $user->isSuperadmin() ? SystemEvent::query()->open()->whereIn('level', ['error', 'critical'])->count() : 0,
+            'problems' => $user->seesOthers() ? SystemEvent::query()->open()->whereIn('level', ['error', 'critical'])->count() : 0,
         ]);
     }
 
     public function data(Request $request, GroupList $groups): JsonResponse
     {
         $user = $request->user();
-        $scope = $user->isSuperadmin() ? null : $user->id;
+        $scope = $user->seesOthers() ? null : $user->id;
 
         return response()->json([
             'today' => DeliveryStats::between(now()->startOfDay(), now())->forUser($scope)->totals(),

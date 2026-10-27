@@ -12,7 +12,7 @@
             'destroy' => route('phones.destroy', '__ID__'),
         ]),
         t: @js(__('phones.js')),
-        canSeeAll: @js(auth()->user()->isSuperadmin()),
+        canSeeAll: @js(auth()->user()->seesOthers()),
     })">
         <x-ui.page-header :title="__('phones.title')" :description="__('phones.description')">
             <x-slot:actions>

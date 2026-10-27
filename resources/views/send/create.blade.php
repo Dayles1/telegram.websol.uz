@@ -1,5 +1,5 @@
 @php
-    $isAdmin = auth()->user()->isSuperadmin();
+    $isAdmin = auth()->user()->seesOthers();
     $max = \App\Sending\MassSend::MAX_TEXT_LENGTH;
     $caption = \App\Sending\MassSend::MAX_CAPTION_LENGTH;
     $limits = [

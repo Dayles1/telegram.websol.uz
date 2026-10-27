@@ -17,7 +17,9 @@ The reference for "how we build now" is the newer project Postix
   input. Load the `telegram-madeline` skill before touching login, sessions or sending.
 - Any UI work: load the `ui-console-design` skill first.
 - Every query that reads or changes a phone, catalog, group or message is scoped by
-  ownership through a Policy (`superadmin` sees everything). No IDOR.
+  ownership through a Policy / `User::oversees()` + `limitToOverseen()` (`superadmin`, one user by
+  `telegram.superadmin_email`, sees everything; `admin` has the same rights except accounts: own + plain
+  users', never another admin's, and cannot edit another admin). No IDOR.
 - Never write files into `public/` from code (Madeline logs, sessions, phars).
 - Do not delete API endpoints until `docs/REWRITE_PLAN.md` marks them as confirmed unused
   (API consumers are external and not fully known).
@@ -27,7 +29,7 @@ The reference for "how we build now" is the newer project Postix
 ```
 app/
   Enums/                    backed string enums: AccountStatus, GroupStatus, MessageStatus, TaskStatus,
-                            EventLevel, EventKind, Role (label()/tone() for the UI)
+                            EventLevel, EventKind, Role (user/admin/superadmin) (label()/tone() for the UI)
   Models/                   Eloquent: relations, casts (Casts/LenientEnum for status columns), scopes
   Policies/                 ownership; superadmin passes in before()
   Accounts/                 AccountLogin (phone -> code -> 2FA state machine), AccountSessions (check,

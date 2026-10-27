@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\Role as RoleName;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Password;
 
 /** Users over the API. Was open to any token; now superadmin only (profile excepted). */
@@ -48,7 +50,7 @@ final class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
             'password' => ['required', Password::min(8)],
-            'role_id' => ['required', 'exists:roles,id'],
+            'role_id' => ['required', $this->assignableRole($request)],
         ]);
 
         $user = User::query()->create($data);
@@ -62,7 +64,7 @@ final class UserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user)],
-            'role_id' => ['required', 'exists:roles,id'],
+            'role_id' => ['required', $this->assignableRole($request)],
             'password' => ['nullable', Password::min(8)],
         ]);
         if (empty($data['password'])) {
@@ -80,6 +82,14 @@ final class UserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'User deleted successfully']);
+    }
+
+    /** role_id of a role this email may get: superadmin only for the configured superadmin email. */
+    private function assignableRole(Request $request): Exists
+    {
+        $names = array_map(fn (RoleName $r) => $r->value, RoleName::assignableTo((string) $request->input('email')));
+
+        return Rule::exists('roles', 'id')->whereIn('name', $names);
     }
 
     /** GET /api/profile */

@@ -17,7 +17,7 @@ final class SendLoopPolicy
 
     public function view(User $user, SendLoop $loop): bool
     {
-        return $loop->created_by === $user->id || $loop->phone?->user_id === $user->id;
+        return $loop->created_by === $user->id || $user->oversees($loop->phone?->user);
     }
 
     public function stop(User $user, SendLoop $loop): bool

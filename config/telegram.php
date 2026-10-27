@@ -15,6 +15,13 @@ return [
     'device_model' => env('TELEGRAM_DEVICE_MODEL', 'Server'),
 
     /*
+    | The only superadmin. Anyone else with the superadmin role is treated as a
+    | plain user (see App\Models\User::isSuperadmin); admins see their own and
+    | plain users' accounts, never another admin's.
+    */
+    'superadmin_email' => env('TELEGRAM_SUPERADMIN_EMAIL', 'superadmin@example.com'),
+
+    /*
     | Session files. Old sessions keep the absolute path stored on their row;
     | new ones are created here.
     */

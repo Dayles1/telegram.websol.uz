@@ -11,7 +11,7 @@ final class CatalogPolicy
 {
     public function before(User $user): ?bool
     {
-        return $user->isSuperadmin() ? true : null;
+        return $user->seesOthers() ? true : null;
     }
 
     public function view(User $user, Catalog $catalog): bool

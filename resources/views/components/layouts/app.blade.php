@@ -2,7 +2,7 @@
 
 @php
     $user = auth()->user();
-    $isAdmin = $user->isSuperadmin();
+    $isAdmin = $user->seesOthers();
 
     $nav = [
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'home', 'label' => __('nav.dashboard')],

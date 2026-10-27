@@ -26,7 +26,7 @@ final class StatsAccess
 
         $bearer = $request->bearerToken();
         $user = $bearer ? PersonalAccessToken::findToken($bearer)?->tokenable : null;
-        if ($user !== null && method_exists($user, 'isSuperadmin') && $user->isSuperadmin()) {
+        if ($user !== null && method_exists($user, 'seesOthers') && $user->seesOthers()) {
             return $next($request);
         }
 

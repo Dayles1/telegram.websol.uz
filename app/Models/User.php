@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\Role as RoleName;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,9 +57,52 @@ class User extends Authenticatable
         return RoleName::tryFrom((string) $this->role?->name) ?? RoleName::User;
     }
 
+    /** The role alone is not enough: only the configured email is the superadmin. */
     public function isSuperadmin(): bool
     {
-        return $this->roleName() === RoleName::Superadmin;
+        return $this->roleName() === RoleName::Superadmin && RoleName::isSuperadminEmail($this->email);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->roleName() === RoleName::Admin;
+    }
+
+    /** Sees accounts, sends and catalogs beyond their own (which ones: oversees()). */
+    public function seesOthers(): bool
+    {
+        return $this->isSuperadmin() || $this->isAdmin();
+    }
+
+    /** May see and act on what $owner owns: themselves; an admin also plain users; the superadmin everyone. */
+    public function oversees(?User $owner): bool
+    {
+        return match (true) {
+            $this->isSuperadmin() => true,
+            $owner === null => false,
+            $owner->id === $this->id => true,
+            $this->isAdmin() => $owner->roleName() === RoleName::User,
+            default => false,
+        };
+    }
+
+    /** Limits $column (a users.id) to the owners this user oversees, the same rule as oversees(). */
+    public function limitToOverseen(Builder $query, string $column = 'user_id'): void
+    {
+        match (true) {
+            $this->isSuperadmin() => null,
+            $this->isAdmin() => $query->where(fn (Builder $q) => $q->where($column, $this->id)->orWhereIn($column, self::plainUserIds())),
+            default => $query->where($column, $this->id),
+        };
+    }
+
+    /** Subquery: users with the plain user role (or none), the ones an admin oversees. */
+    public static function plainUserIds(): Builder
+    {
+        return self::query()->select('id')->whereDoesntHave(
+            'role',
+            fn (Builder $q) => $q->whereIn('name', [RoleName::Admin->value, RoleName::Superadmin->value]),
+        );
     }
 
     /** Kept for old call sites and the API: hasRole('superadmin'). */

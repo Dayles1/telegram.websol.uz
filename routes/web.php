@@ -82,8 +82,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('tokens/{token}', 'deleteToken')->name('tokens.destroy');
     });
 
-    // Superadmin
-    Route::middleware('can:superadmin')->group(function () {
+    // Admins and the superadmin (accounts are the only difference: User::oversees)
+    Route::middleware('can:admin')->group(function () {
         Route::resource('users', UserController::class)->except('show');
 
         Route::prefix('monitoring')->name('monitoring.')->group(function () {

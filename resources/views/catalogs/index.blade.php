@@ -1,4 +1,4 @@
-@php($isAdmin = auth()->user()->isSuperadmin())
+@php($isAdmin = auth()->user()->seesOthers())
 
 <x-layouts.app :title="__('catalogs.title')">
     <div x-data="catalogsPage({
@@ -147,7 +147,7 @@
             <x-ui.pager />
         </section>
 
-        {{-- Give copies to users (superadmin) --}}
+        {{-- Give copies to users (admin) --}}
         @if ($isAdmin)
             <x-ui.modal show="give" :title="__('catalogs.give_title')" width="max-w-md">
                 <p class="c-muted mb-4 text-[13px]" x-text="t.give_text.replace(':title', giveCatalog?.title ?? '')"></p>

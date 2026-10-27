@@ -60,9 +60,7 @@ class UserPhone extends Model
 
     public function scopeOwnedBy(Builder $query, User $user): void
     {
-        if (! $user->isSuperadmin()) {
-            $query->where('user_id', $user->id);
-        }
+        $user->limitToOverseen($query);
     }
 
     /** Phones that finished a login at least once (what the old code stored). */

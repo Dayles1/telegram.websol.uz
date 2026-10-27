@@ -24,7 +24,7 @@ return [
     'name' => 'Ism',
     'email' => 'Email',
     'role' => 'Rol',
-    'role_hint' => 'Superadmin barcha akkaunt va yuborishlarni ko‘radi hamda foydalanuvchilarni boshqaradi.',
+    'role_hint' => 'Admin hamma narsani superadmin kabi boshqaradi, faqat akkauntlarda farq bor: o‘zining va oddiy foydalanuvchilarnikini ko‘radi, boshqa adminlarnikini ko‘rmaydi va ularni tahrirlay olmaydi. Superadmin bitta va hamma akkauntni ko‘radi.',
     'password' => 'Parol',
     'password_hint' => 'Kamida 8 ta belgi.',
     'password_keep' => 'Parolni o‘zgartirmaslik uchun bo‘sh qoldiring.',

@@ -34,8 +34,8 @@ final class CatalogRequest extends FormRequest
 
         $data = ['title' => trim((string) $this->input('title')), 'peers' => $peers];
 
-        // Only a superadmin decides who else sees a catalog.
-        if ($this->user()->isSuperadmin() && $this->has('is_global')) {
+        // Only an admin or the superadmin decides who else sees a catalog.
+        if ($this->user()->seesOthers() && $this->has('is_global')) {
             $data['is_global'] = $this->boolean('is_global');
         }
         if ($this->has('timer_minutes')) {

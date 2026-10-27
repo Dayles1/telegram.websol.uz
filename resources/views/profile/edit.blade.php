@@ -21,7 +21,7 @@
                     </div>
                     <div class="mt-3 truncate text-base font-semibold text-gray-950 dark:text-white">{{ $user->name }}</div>
                     <div class="c-muted truncate text-[13px]">{{ $user->email }}</div>
-                    <div class="mt-2"><x-ui.badge :tone="$user->isSuperadmin() ? 'brand' : 'neutral'">{{ $user->roleName()->label() }}</x-ui.badge></div>
+                    <div class="mt-2"><x-ui.badge :tone="$user->roleName()->tone()">{{ $user->roleName()->label() }}</x-ui.badge></div>
 
                     <input type="file" x-ref="avatarInput" accept="image/*" class="hidden" @change="upload($event)">
                     <div class="mt-4 flex justify-center gap-2">

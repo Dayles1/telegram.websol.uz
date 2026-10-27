@@ -1,9 +1,9 @@
 import { http } from '../lib/http';
 
 /**
- * Catalogs list: tabs (mine / global / others for a superadmin), search,
+ * Catalogs list: tabs (mine / global / others for an admin or the superadmin), search,
  * pagination, an expandable peer list per row, delete, copy to me and
- * (superadmin) give copies to users.
+ * (admin) give copies to users.
  */
 export default function catalogsPage({ urls, t, isAdmin }) {
     const url = (name, id) => urls[name].replace('__ID__', id);

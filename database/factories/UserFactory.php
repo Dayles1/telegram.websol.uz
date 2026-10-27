@@ -27,10 +27,19 @@ class UserFactory extends Factory
         ];
     }
 
+    /** The superadmin is one user: the configured email (see User::isSuperadmin). */
     public function superadmin(): static
     {
         return $this->state(fn () => [
+            'email' => config('telegram.superadmin_email'),
             'role_id' => Role::query()->firstOrCreate(['name' => RoleName::Superadmin->value])->id,
+        ]);
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn () => [
+            'role_id' => Role::query()->firstOrCreate(['name' => RoleName::Admin->value])->id,
         ]);
     }
 }

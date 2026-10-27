@@ -64,7 +64,7 @@ class SendLoop extends Model
     {
         if (! $user->isSuperadmin()) {
             $query->where(fn (Builder $q) => $q
-                ->whereHas('phone', fn (Builder $p) => $p->where('user_id', $user->id))
+                ->whereHas('phone', fn (Builder $p) => $user->limitToOverseen($p))
                 ->orWhere('created_by', $user->id));
         }
     }

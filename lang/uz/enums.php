@@ -2,6 +2,7 @@
 
 return [
     'role' => [
+        'admin' => 'Admin',
         'user' => 'Foydalanuvchi',
         'superadmin' => 'Superadmin',
     ],

@@ -122,7 +122,7 @@ final class StatisticsController extends Controller
         return response()->json(['fetched_at' => now()->toDateTimeString(), 'count' => $groups->count(), 'groups' => $groups]);
     }
 
-    /** Users (not superadmins) with operations_count (sends) and messages_count (delivered) since $from. */
+    /** Users (not admins or the superadmin) with operations_count (sends) and messages_count (delivered) since $from. */
     private function usersWithCounts(?CarbonInterface $from): Builder
     {
         $operations = DB::table('message_groups as mg')
@@ -149,7 +149,7 @@ final class StatisticsController extends Controller
     {
         return DB::table('users')
             ->leftJoin('roles', 'roles.id', '=', 'users.role_id')
-            ->where(fn ($q) => $q->whereNull('roles.name')->orWhere('roles.name', '!=', Role::Superadmin->value));
+            ->where(fn ($q) => $q->whereNull('roles.name')->orWhereNotIn('roles.name', [Role::Admin->value, Role::Superadmin->value]));
     }
 
     private function periodStart(string $period): ?CarbonInterface

@@ -6,26 +6,30 @@ namespace App\Policies;
 
 use App\Models\User;
 
-/** Only a superadmin manages users, and nobody deletes a superadmin or themselves. */
+/**
+ * Admins and the superadmin manage users. An admin changes only plain users and themselves:
+ * editing another admin (their password, their role) would reach that admin's accounts.
+ * Nobody deletes the superadmin or themselves.
+ */
 final class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isSuperadmin();
+        return $user->seesOthers();
     }
 
     public function create(User $user): bool
     {
-        return $user->isSuperadmin();
+        return $user->seesOthers();
     }
 
     public function update(User $user, User $target): bool
     {
-        return $user->isSuperadmin();
+        return $user->seesOthers() && $user->oversees($target);
     }
 
     public function delete(User $user, User $target): bool
     {
-        return $user->isSuperadmin() && ! $target->isSuperadmin() && $user->id !== $target->id;
+        return $this->update($user, $target) && ! $target->isSuperadmin() && $user->id !== $target->id;
     }
 }

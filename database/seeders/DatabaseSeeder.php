@@ -27,13 +27,14 @@ class DatabaseSeeder extends Seeder
         }
 
         $password = (string) (env('SEED_ADMIN_PASSWORD') ?: Str::password(16, symbols: false));
+        $email = (string) config('telegram.superadmin_email'); // the only email that is ever superadmin
         User::query()->create([
             'name' => 'Super Admin',
-            'email' => env('SEED_ADMIN_EMAIL', 'admin@websol.uz'),
+            'email' => $email,
             'password' => $password,
             'role_id' => $superadmin,
         ]);
 
-        $this->command?->warn('Superadmin created: '.env('SEED_ADMIN_EMAIL', 'admin@websol.uz')." / {$password} (change it after the first login)");
+        $this->command?->warn("Superadmin created: {$email} / {$password} (change it after the first login)");
     }
 }

@@ -37,7 +37,8 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading(! $this->app->isProduction());
         Paginator::defaultView('components.ui.pagination');
 
-        Gate::define('superadmin', fn (User $user) => $user->isSuperadmin());
+        // admins and the superadmin: users, monitoring, settings, global catalogs (accounts: User::oversees)
+        Gate::define('admin', fn (User $user) => $user->seesOthers());
 
         RateLimiter::for('login', fn (Request $request) => [
             Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()),

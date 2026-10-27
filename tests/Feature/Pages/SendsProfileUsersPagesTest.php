@@ -417,29 +417,26 @@ class SendsProfileUsersPagesTest extends TestCase
         $created = User::query()->where('email', 'operator@example.com')->firstOrFail();
         $this->assertSame(Role::User, $created->roleName());
 
-        $this->put(route('users.update', $created), ['name' => 'Operator 2', 'email' => 'operator@example.com', 'password' => '', 'role' => 'superadmin'])
+        $this->put(route('users.update', $created), ['name' => 'Operator 2', 'email' => 'operator@example.com', 'password' => '', 'role' => 'admin'])
             ->assertRedirect(route('users.index'));
         $created->refresh()->load('role');
         $this->assertSame('Operator 2', $created->name);
-        $this->assertSame(Role::Superadmin, $created->roleName());
+        $this->assertSame(Role::Admin, $created->roleName());
         $this->assertTrue(Hash::check('long-enough', $created->password));
 
         $this->delete(route('users.destroy', $this->owner))->assertRedirect(route('users.index'))->assertSessionHas('success');
         $this->assertNull(User::query()->find($this->owner->id));
     }
 
-    public function test_superadmins_and_yourself_cannot_be_deleted(): void
+    public function test_the_superadmin_cannot_delete_themselves(): void
     {
         $admin = $this->superadmin();
-        $otherAdmin = $this->superadmin();
 
-        $this->actingAs($admin)->delete(route('users.destroy', $otherAdmin))->assertForbidden();
-        $this->delete(route('users.destroy', $admin))->assertForbidden();
-        $this->assertNotNull(User::query()->find($otherAdmin->id));
+        $this->actingAs($admin)->delete(route('users.destroy', $admin))->assertForbidden();
         $this->assertNotNull(User::query()->find($admin->id));
 
         // no delete button for them on the list
-        $this->get(route('users.index'))->assertOk()->assertDontSee('action="'.route('users.destroy', $otherAdmin).'"', false)
+        $this->get(route('users.index'))->assertOk()->assertDontSee('action="'.route('users.destroy', $admin).'"', false)
             ->assertSee('action="'.route('users.destroy', $this->owner).'"', false);
     }
 

@@ -21,6 +21,21 @@ Akkaunt xabarlar orasida pauza qiladi (standart 2–5 soniya) va kunlik limitga 
 shuning uchun 1000 ta qabul qiluvchiga yuborish bir necha soat davom etishi mumkin.
 24 soat ichida yuborilmagan xabar `failed` (`error_key: expired`) bo'ladi.
 
+### Rollar va kimning akkauntidan yuborish mumkin
+
+| Rol | Ko'radi va yubora oladi |
+|---|---|
+| `user` | faqat o'z akkauntlari, kataloglari va yuborishlari |
+| `admin` | o'zinikilar + oddiy `user` larniki; boshqa adminlarniki **yo'q** |
+| `superadmin` | hammasi; bitta foydalanuvchi (`superadmin@example.com`) |
+
+Admin va superadmin faqat akkauntlarda farq qiladi. Qolgan hamma narsa ikkalasiga ham ochiq:
+foydalanuvchilar, barcha kataloglar, katalog nusxalash, `/api/stats`. Faqat admin boshqa adminni
+tahrirlay olmaydi va o'chira olmaydi (`403`).
+
+Ruxsat bo'lmagan akkauntning `phone_id` si yuborilsa: `422` `Phone not found or not yours.`
+`GET /api/phones` da `others_phones` admin uchun faqat oddiy userlarning akkauntlari.
+
 ### Limitlar (so'rovlar soni)
 
 | Endpoint | Limit |
@@ -168,7 +183,7 @@ akkaunt pauzaga tushadi va keyin o'zi davom etadi. (`flood_wait_N` kabi kalitlar
 - `POST /api/catalogs` `{ "title": "Mijozlar", "peers": ["@alice", "t.me/bob", "+998901234567"], "timer_minutes": 30 }`
   (yoki `peers_text`: har qatorda bitta). `timer_minutes` — bitta akkauntdan shu katalogga necha daqiqada bir marta
   yuborish mumkin (`0`/`null` — cheklovsiz; band bo'lsa `429 catalog_cooldown`);
-- `GET|PUT|DELETE /api/catalogs/{id}`; `POST /api/catalogs/duplicate` `{catalog_id, user_ids[]}` (faqat superadmin).
+- `GET|PUT|DELETE /api/catalogs/{id}`; `POST /api/catalogs/duplicate` `{catalog_id, user_ids[]}` (admin yoki superadmin).
 
 ## 6. Yakka xabar (Telegram ID yoki telefon bo'yicha)
 
@@ -180,7 +195,7 @@ Yangi integratsiyalar uchun `POST /api/tg/send` + `peer` qulayroq (fayl va takro
 ## 7. Boshqalar
 
 - Chat tarixi: `POST /api/fetch-messages` `{phone_id, peer}` (fonda yuklaydi) → `GET /api/chat-logs?phone_id=&peer=`.
-- Foydalanuvchilar (faqat superadmin): `GET|POST /api/users`, `GET|PUT|DELETE /api/users/{id}`, `GET /api/users/roles`.
+- Foydalanuvchilar (admin yoki superadmin; admin boshqa adminni o'zgartira olmaydi): `GET|POST /api/users`, `GET|PUT|DELETE /api/users/{id}`, `GET /api/users/roles`.
 - Statistika (tashqi dashboard, `X-Stats-Token: <STATS_API_TOKEN>` sarlavhasi bilan, Bearer kerak emas):
   `GET /api/stats/top-users?period=day|week|month|year|all&type=top|bottom|both&limit=`,
   `GET /api/stats/top-users-by-status?status=sent|failed|pending|canceled&limit=&period=`,

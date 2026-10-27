@@ -142,7 +142,7 @@ final class GroupProgress
 
         // MessageTask has no "canceled": a failed task with this code is what API clients understand
         $tasks = MessageTask::query()->where('status', TaskStatus::Pending)
-            ->when(! $user->isSuperadmin(), fn (Builder $q) => $q->whereHas('sender', fn (Builder $p) => $p->where('user_id', $user->id)))
+            ->when(! $user->isSuperadmin(), fn (Builder $q) => $q->whereHas('sender', fn (Builder $p) => $user->limitToOverseen($p)))
             ->when($phoneId, fn (Builder $q, int $id) => $q->where('sender_phone_id', $id))
             ->update(['status' => TaskStatus::Failed, 'error_code' => 'CANCELED', 'error_message' => 'Canceled by the user', 'updated_at' => now()]);
 

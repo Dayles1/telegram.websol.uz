@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
-/** Superadmin: the panel's users. */
+/** Superadmin: the panel's users and their roles (superadmin, admin, user: see App\Enums\Role). */
 final class UserController extends Controller
 {
     public function index(Request $request): View

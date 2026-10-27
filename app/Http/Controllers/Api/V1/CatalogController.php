@@ -29,9 +29,9 @@ final class CatalogController extends Controller
             ->when($search !== '', fn (Builder $q) => $q->where('title', 'like', "%{$search}%"))
             ->latest()->paginate($perPage, ['*'], 'my_page');
 
-        // Others: every catalog for a superadmin, the global ones for everybody else.
+        // Others: every catalog for an admin or the superadmin, the global ones for everybody else.
         $all = Catalog::query()->with('user:id,name')->where('user_id', '!=', $user->id)
-            ->when(! $user->isSuperadmin(), fn (Builder $q) => $q->where('is_global', true))
+            ->when(! $user->seesOthers(), fn (Builder $q) => $q->where('is_global', true))
             ->when($search !== '', $matches)
             ->latest()->paginate($perPage, ['*'], 'all_page');
 
@@ -41,7 +41,7 @@ final class CatalogController extends Controller
                 'tab' => $request->query('tab', 'my'),
                 'my_catalogs' => $mine,
                 'all_catalogs' => $all,
-                'can_see_all' => $user->isSuperadmin(),
+                'can_see_all' => $user->seesOthers(),
             ],
         ]);
     }
@@ -79,7 +79,7 @@ final class CatalogController extends Controller
     /** POST /api/catalogs/duplicate {catalog_id, user_ids[]} (superadmin) */
     public function duplicate(Request $request): JsonResponse
     {
-        Gate::authorize('superadmin');
+        Gate::authorize('admin');
         $data = $request->validate([
             'catalog_id' => ['required', 'integer', 'exists:catalogs,id'],
             'user_ids' => ['required', 'array', 'min:1'],

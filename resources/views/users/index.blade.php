@@ -49,15 +49,19 @@
                                     <div class="flex items-center gap-3">
                                         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">{{ $u->initials }}</span>
                                         <div class="min-w-0">
-                                            <a href="{{ route('users.edit', $u) }}" class="block truncate font-medium text-gray-900 hover:underline dark:text-white">
-                                                {{ $u->name }}
-                                                @if ($u->id === auth()->id())<span class="c-muted font-normal">· {{ __('users.you') }}</span>@endif
-                                            </a>
+                                            @can('update', $u)
+                                                <a href="{{ route('users.edit', $u) }}" class="block truncate font-medium text-gray-900 hover:underline dark:text-white">
+                                                    {{ $u->name }}
+                                                    @if ($u->id === auth()->id())<span class="c-muted font-normal">· {{ __('users.you') }}</span>@endif
+                                                </a>
+                                            @else
+                                                <span class="block truncate font-medium text-gray-900 dark:text-white">{{ $u->name }}</span>
+                                            @endcan
                                             <div class="c-muted truncate text-xs">{{ $u->email }}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td><x-ui.badge :tone="$role === \App\Enums\Role::Superadmin ? 'brand' : 'neutral'">{{ $role->label() }}</x-ui.badge></td>
+                                <td><x-ui.badge :tone="$role->tone()">{{ $role->label() }}</x-ui.badge></td>
                                 <td class="text-right tabular-nums">{{ number_format($u->phones_count, 0, '.', ' ') }}</td>
                                 <td class="text-right tabular-nums">{{ number_format($u->catalogs_count, 0, '.', ' ') }}</td>
                                 <td class="text-right tabular-nums">{{ number_format($stats['groups'], 0, '.', ' ') }}</td>
@@ -72,7 +76,9 @@
                                 </td>
                                 <td>
                                     <div class="flex justify-end gap-1">
-                                        <x-ui.button :href="route('users.edit', $u)" size="icon-sm" variant="ghost" :title="__('common.edit')"><x-ui.icon name="edit" /></x-ui.button>
+                                        @can('update', $u)
+                                            <x-ui.button :href="route('users.edit', $u)" size="icon-sm" variant="ghost" :title="__('common.edit')"><x-ui.icon name="edit" /></x-ui.button>
+                                        @endcan
                                         @can('delete', $u)
                                             <form method="POST" action="{{ route('users.destroy', $u) }}" x-data
                                                   @submit.prevent="$store.confirm.ask({ title: @js(__('users.delete_title')), body: @js(__('users.delete_body', ['name' => $u->name])), action: @js(__('common.delete')) }).then((ok) => ok && $el.submit())">

@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 /**
- * Peer lists. Tabs: "mine", "global" (shared by a superadmin), "others"
- * (superadmin only: every other user's catalogs).
+ * Peer lists. Tabs: "mine", "global" (shared by the superadmin), "others"
+ * (admin and superadmin: everyone else's).
  */
 final class CatalogController extends Controller
 {
@@ -34,7 +34,7 @@ final class CatalogController extends Controller
     {
         $user = $request->user();
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'mine';
-        abort_if($tab === 'others' && ! $user->isSuperadmin(), 403);
+        abort_if($tab === 'others' && ! $user->seesOthers(), 403);
         $search = trim((string) $request->query('search'));
 
         $catalogs = Catalog::query()
@@ -55,7 +55,7 @@ final class CatalogController extends Controller
             'counts' => [
                 'mine' => Catalog::query()->where('user_id', $user->id)->count(),
                 'global' => Catalog::query()->where('is_global', true)->where('user_id', '!=', $user->id)->count(),
-                'others' => $user->isSuperadmin() ? Catalog::query()->where('user_id', '!=', $user->id)->count() : null,
+                'others' => $user->seesOthers() ? Catalog::query()->where('user_id', '!=', $user->id)->count() : null,
             ],
         ]);
     }
@@ -107,10 +107,10 @@ final class CatalogController extends Controller
         return response()->json(['ok' => true, 'message' => __('catalogs.copied'), 'id' => $copy->id]);
     }
 
-    /** Superadmin: give a copy to each chosen user. */
+    /** Admin / superadmin: give a copy to each chosen user. */
     public function distribute(Request $request, Catalog $catalog): JsonResponse
     {
-        Gate::authorize('superadmin');
+        Gate::authorize('admin');
         $userIds = array_unique($request->validate([
             'user_ids' => ['required', 'array', 'min:1'],
             'user_ids.*' => ['integer', 'exists:users,id'],
@@ -138,10 +138,10 @@ final class CatalogController extends Controller
         return response()->json(['ok' => true, 'message' => __('catalogs.peer_removed', ['peer' => $peer])]);
     }
 
-    /** Users a superadmin can hand a catalog to. */
+    /** Users an admin or the superadmin can hand a catalog to. */
     public function users(): JsonResponse
     {
-        Gate::authorize('superadmin');
+        Gate::authorize('admin');
 
         return response()->json(User::query()->orderBy('name')->get(['id', 'name', 'email']));
     }

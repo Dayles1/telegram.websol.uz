@@ -1,5 +1,5 @@
 @php
-    $isAdmin = auth()->user()->isSuperadmin();
+    $isAdmin = auth()->user()->seesOthers();
     $editing = $catalog->exists;
     $pageTitle = $editing ? __('catalogs.edit_title') : __('catalogs.create_title');
     $presets = [

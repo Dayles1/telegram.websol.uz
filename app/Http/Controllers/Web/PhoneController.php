@@ -39,7 +39,7 @@ final class PhoneController extends Controller
         $phones = UserPhone::query()
             ->with('user:id,name')
             ->ownedBy($user)
-            ->when(! $request->boolean('all') || ! $user->isSuperadmin(), fn ($q) => $q->where('user_id', $user->id))
+            ->when(! $request->boolean('all'), fn ($q) => $q->where('user_id', $user->id))
             ->orderByRaw('user_id = ? desc', [$user->id])
             ->orderBy('phone')
             ->get();

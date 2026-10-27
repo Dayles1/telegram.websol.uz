@@ -29,7 +29,7 @@
                 </x-ui.field>
                 <x-ui.field :label="__('users.role')" for="role" error="role" :hint="__('users.role_hint')">
                     <select id="role" name="role" class="c-input" @error('role') aria-invalid="true" @enderror>
-                        @foreach (\App\Enums\Role::cases() as $role)
+                        @foreach (\App\Enums\Role::assignableTo($user->email) as $role)
                             <option value="{{ $role->value }}" @selected($currentRole === $role->value)>{{ $role->label() }}</option>
                         @endforeach
                     </select>

@@ -7,7 +7,7 @@ namespace App\Policies;
 use App\Models\MessageGroup;
 use App\Models\User;
 
-/** A send is visible to the owner of the account it went from and to whoever created it. */
+/** A send is visible to whoever created it and to whoever oversees the account it went from (User::oversees). */
 final class MessageGroupPolicy
 {
     public function before(User $user): ?bool
@@ -17,7 +17,7 @@ final class MessageGroupPolicy
 
     public function view(User $user, MessageGroup $group): bool
     {
-        return $group->created_by === $user->id || $group->phone?->user_id === $user->id;
+        return $group->created_by === $user->id || $user->oversees($group->phone?->user);
     }
 
     public function cancel(User $user, MessageGroup $group): bool

@@ -45,10 +45,10 @@ class Catalog extends Model
         return $this->hasMany(CatalogUsage::class);
     }
 
-    /** Catalogs the user may send to: their own, the global ones, all for a superadmin. */
+    /** Catalogs the user may send to: their own, the global ones, all for an admin or the superadmin. */
     public function scopeUsableBy(Builder $query, User $user): void
     {
-        if (! $user->isSuperadmin()) {
+        if (! $user->seesOthers()) {
             $query->where(fn (Builder $q) => $q->where('user_id', $user->id)->orWhere('is_global', true));
         }
     }

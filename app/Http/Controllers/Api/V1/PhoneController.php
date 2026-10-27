@@ -33,9 +33,10 @@ final class PhoneController extends Controller
     {
         $user = $request->user();
         $mine = UserPhone::query()->with('user.role')->where('user_id', $user->id)->connected()->latest()->get()
-            ->map(fn (UserPhone $p) => $this->format($p, true, $user->isSuperadmin()));
-        $others = $user->isSuperadmin()
-            ? UserPhone::query()->with('user.role')->where('user_id', '!=', $user->id)->connected()->latest()->get()
+            ->map(fn (UserPhone $p) => $this->format($p, true, $user->seesOthers()));
+        // others: plain users' accounts for an admin, everyone's for the superadmin
+        $others = $user->seesOthers()
+            ? UserPhone::query()->with('user.role')->ownedBy($user)->where('user_id', '!=', $user->id)->connected()->latest()->get()
                 ->map(fn (UserPhone $p) => $this->format($p, false, true))
             : collect();
 
@@ -43,7 +44,7 @@ final class PhoneController extends Controller
             'success' => true,
             'data' => [
                 'my_phones' => ['count' => $mine->count(), 'items' => $mine],
-                'others_phones' => ['count' => $others->count(), 'visible' => $user->isSuperadmin(), 'items' => $others],
+                'others_phones' => ['count' => $others->count(), 'visible' => $user->seesOthers(), 'items' => $others],
                 'stats' => [
                     'total_my' => $mine->count(),
                     'total_others' => $others->count(),
@@ -128,7 +129,7 @@ final class PhoneController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function format(UserPhone $phone, bool $isOwner, bool $isSuperadmin): array
+    private function format(UserPhone $phone, bool $isOwner, bool $canControl): array
     {
         $owner = $phone->user;
 
@@ -137,7 +138,7 @@ final class PhoneController extends Controller
             'phone' => $phone->phone,
             'telegram_user_id' => $phone->telegram_user_id,
             'is_owner' => $isOwner,
-            'can_control' => $isOwner || $isSuperadmin,
+            'can_control' => $isOwner || $canControl,
             'session_exists' => $isOwner ? $phone->canSend() : null,
             'status' => $phone->status->value,
             'name' => $phone->display_name,
