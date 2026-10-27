@@ -62,10 +62,8 @@ final class SendWorker
 
     private const TRANSIENT_STREAK_LIMIT = 5;
 
-    /** Runs in a row that never returned before the account pauses, and for how long. */
-    public const DEAD_RUNS_LIMIT = 3;
-
-    public const DEAD_RUNS_PAUSE_MINUTES = 30;
+    /** A message that failed on a network or Telegram hiccup goes again after the others, this much later. */
+    public const TRANSIENT_RETRY_SECONDS = 60;
 
     /** @var array<int, array{text: string, file: ?OutgoingFile, missing: bool}> group id => what to send */
     private array $payloads = [];
@@ -127,9 +125,7 @@ final class SendWorker
         Cache::put(self::runningKey($accountId), ['pid' => getmypid(), 'started_at' => time()], $maxRuntime + 300);
 
         try {
-            if ($this->previousRunDied($accountId)) {
-                return self::DONE; // paused
-            }
+            $this->previousRunDied($accountId);
             $this->markUnfinished($accountId, null);
             $outcome = $this->work($accountId);
             Cache::forget(self::deadRunsKey($accountId));
@@ -181,42 +177,34 @@ final class SendWorker
     }
 
     /**
-     * Records a previous run that never returned; after DEAD_RUNS_LIMIT of them in a
-     * row the account pauses (its messages would otherwise wait in silence for hours)
-     * and its session is checked. True when the account is paused now.
+     * Records a previous run that never returned. The message it had in hand fails
+     * (worker_timeout) instead of going again, so one peer Telegram hangs on never
+     * holds back the account's other messages; the session is checked in case it
+     * is the account itself that hangs.
      */
-    private function previousRunDied(int $accountId): bool
+    private function previousRunDied(int $accountId): void
     {
         $previous = Cache::pull(self::unfinishedKey($accountId));
         if (! is_array($previous)) {
-            return false;
+            return;
         }
 
         Cache::add(self::deadRunsKey($accountId), 0, now()->addDay());
         $deadRuns = (int) Cache::increment(self::deadRunsKey($accountId));
-        $messageId = $previous['message_id'] ?? null;
+        $message = isset($previous['message_id']) ? TelegramMessage::query()->find($previous['message_id']) : null;
         $this->events->error(EventKind::Worker, 'A send run of this account never finished: it hung on Telegram until the time limit or the process died', [
             'started_at' => date('Y-m-d H:i:s', (int) ($previous['started_at'] ?? 0)),
             'pid' => $previous['pid'] ?? null,
-            'message_id' => $messageId,
-            'peer' => $messageId !== null ? TelegramMessage::query()->whereKey($messageId)->value('peer') : null,
+            'message_id' => $message?->id,
+            'peer' => $message?->peer,
             'in_a_row' => $deadRuns,
-        ], $accountId, errorKey: 'worker_timeout');
+        ], $accountId, $message?->message_group_id, 'worker_timeout');
 
-        if ($deadRuns < self::DEAD_RUNS_LIMIT) {
-            return false;
+        if ($message !== null && $message->status === MessageStatus::Sending) {
+            $message->update(['status' => MessageStatus::Failed, 'error_key' => 'worker_timeout', 'claimed_at' => null, 'attempts' => $message->attempts + 1]);
+            $this->progress->refresh($message->message_group_id);
         }
-
-        Cache::forget(self::deadRunsKey($accountId));
-        $until = now()->addMinutes(self::DEAD_RUNS_PAUSE_MINUTES);
-        UserPhone::query()->whereKey($accountId)->update(['flood_until' => $until, 'last_error' => 'worker_timeout']);
-        $this->events->critical(EventKind::Worker, 'Send runs of this account keep hanging, the account pauses and its session is checked', [
-            'until' => $until->toDateTimeString(),
-            'in_a_row' => $deadRuns,
-        ], $accountId, errorKey: 'worker_timeout');
         CheckAccountSession::dispatch($accountId);
-
-        return true;
     }
 
     private function work(int $accountId): int
@@ -433,7 +421,14 @@ final class SendWorker
             $error = TelegramError::from($e);
             $verdict = $this->handleFailure($account, $error, $message->message_group_id, release: function () use ($message): void {
                 $message->update(['status' => MessageStatus::Pending, 'claimed_at' => null, 'attempts' => $message->attempts + 1]);
-            }, fail: $fail, attempts: $message->attempts + 1);
+            }, fail: $fail, attempts: $message->attempts + 1, retryLater: function () use ($message): void {
+                $message->update([
+                    'status' => MessageStatus::Pending,
+                    'claimed_at' => null,
+                    'attempts' => $message->attempts + 1,
+                    'send_at' => now()->addSeconds(self::TRANSIENT_RETRY_SECONDS),
+                ]);
+            });
             $this->progress->refresh($message->message_group_id);
 
             return $verdict;
@@ -519,11 +514,13 @@ final class SendWorker
      *
      * @param  Closure(): void  $release  put the row back to pending
      * @param  Closure(string): void  $fail  mark the row failed with this key
+     * @param  Closure(): void  $retryLater  put the row back to pending after the others
      * @return true|int true to go on with the next row, or an outcome
      */
-    private function handleFailure(UserPhone $account, TelegramError $error, ?int $groupId, Closure $release, Closure $fail, int $attempts): true|int
+    private function handleFailure(UserPhone $account, TelegramError $error, ?int $groupId, Closure $release, Closure $fail, int $attempts, ?Closure $retryLater = null): true|int
     {
         $settings = $this->settings;
+        $retryLater ??= $release;
 
         switch ($error->kind) {
             case ErrorKind::Wait:
@@ -576,10 +573,11 @@ final class SendWorker
                 return self::NOT_STARTABLE;
 
             case ErrorKind::Transient:
+                // The row goes again later, after the others: one bad peer never holds the queue.
                 if ($attempts >= (int) config('telegram.worker.max_attempts')) {
                     $fail($error->key);
                 } else {
-                    $release();
+                    $retryLater();
                 }
                 if (++$this->transientStreak >= self::TRANSIENT_STREAK_LIMIT) {
                     $this->events->warning(EventKind::Worker, 'Telegram keeps failing for this account, the worker stops for now', [
@@ -588,7 +586,6 @@ final class SendWorker
 
                     return self::RETRY;
                 }
-                ($this->sleeper)(5);
 
                 return true;
 

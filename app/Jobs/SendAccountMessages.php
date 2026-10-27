@@ -36,6 +36,14 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 
     public int $timeout;
 
+    /**
+     * A run killed at the timeout (a Telegram call that hung) ends the job and frees
+     * the account at once; the minute tick queues it again. Otherwise the job would
+     * sit reserved until the queue's retry_after and the account's other messages
+     * would wait with it.
+     */
+    public bool $failOnTimeout = true;
+
     /** A lock left by a killed process expires on its own. */
     public int $uniqueFor = 3600;
 

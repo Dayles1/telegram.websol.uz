@@ -90,7 +90,12 @@ Keys are stored on rows and translated in `lang/*/errors.php` (`codes.*`).
 - `PeerFlood`: the account rests `peer_flood_rest_hours`, alert.
 - `Frozen`: the account stops for 7 days, critical alert.
 - `DeadSession`: `App\Accounts\AccountSessions::retire()` → `revoked`, pending rows fail.
-- `Transient`: retry up to `worker.max_attempts`; a streak makes the worker exit.
+- `Transient`: the row goes back with `send_at` + `TRANSIENT_RETRY_SECONDS` (after the other rows),
+  up to `worker.max_attempts`; a streak of them makes the worker exit.
+- A run killed at the job timeout (a call that hung): the job fails at once (`failOnTimeout`,
+  the minute tick queues the account again), the next run fails the row it had in hand
+  (`worker_timeout`) and checks the session. The account never pauses for it: one bad peer
+  must not hold back the other rows.
 - `Peer` / unknown: fail that row only.
 
 Everything worth seeing later goes through `App\Monitoring\EventRecorder`

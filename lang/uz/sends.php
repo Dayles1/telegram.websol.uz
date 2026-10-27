@@ -145,11 +145,11 @@ return [
         ],
         'hanging' => [
             'title' => 'Yuborish jarayoni :minutes daqiqadan beri Telegram javobini kutyapti',
-            'hint' => 'Jarayon vaqt limitidan oshdi va to‘xtatiladi. Takrorlansa, akkaunt pauzaga qo‘yiladi va sessiyasi tekshiriladi.',
+            'hint' => 'Jarayon vaqt limitidan oshdi va to‘xtatiladi. Bu xabar xato bilan yopiladi, qolganlari davom etadi, akkaunt sessiyasi tekshiriladi.',
         ],
         'hung_before' => [
             'title' => 'Oldingi yuborish jarayoni qotib qoldi (:n marta ketma-ket)',
-            'hint' => 'Telegram javob bermagani uchun jarayon to‘xtatildi. Yuborish qayta urinib ko‘riladi. Bu yana ikki marta takrorlansa, akkaunt pauzaga qo‘yiladi va sessiyasi tekshiriladi.',
+            'hint' => 'Telegram javob bermagani uchun jarayon to‘xtatildi. U qotib qolgan xabar «Yuborish jarayoni qotib qoldi» xatosi bilan yopildi, qolganlari yuborilishda davom etadi. Akkaunt sessiyasi avtomatik tekshiriladi.',
         ],
         'retrying' => [
             'title' => 'Akkaunt sessiyasini ochib bo‘lmayapti (:n marta)',

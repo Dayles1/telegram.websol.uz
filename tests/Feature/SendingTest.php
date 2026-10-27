@@ -146,31 +146,43 @@ class SendingTest extends TestCase
         $this->assertSame(2, $group->messages()->where('error_key', 'session_revoked')->count());
     }
 
-    public function test_a_run_that_never_returned_is_recorded_and_repeated_ones_pause_the_account(): void
+    public function test_a_run_that_never_returned_fails_only_its_message_and_never_pauses_the_account(): void
     {
         Bus::fake([SendAccountMessages::class, CheckAccountSession::class]);
         $group = $this->send(['@alice', '@bob', '@carol', '@dave']);
-        $died = fn () => Cache::put(SendWorker::unfinishedKey($this->phone->id), ['pid' => 1, 'started_at' => time() - 400, 'message_id' => $group->messages()->value('id')], 3600);
+        $died = function () use ($group): void {
+            $hung = $group->messages()->where('status', MessageStatus::Pending)->orderBy('id')->firstOrFail();
+            $hung->update(['status' => MessageStatus::Sending, 'claimed_at' => now()]);
+            Cache::put(SendWorker::unfinishedKey($this->phone->id), ['pid' => 1, 'started_at' => time() - 400, 'message_id' => $hung->id], 3600);
+        };
 
         $died();
-        $this->assertSame(SendWorker::DONE, $this->work()); // still sends after one
-        $this->assertSame(4, $group->messages()->where('status', MessageStatus::Sent)->count());
+        Cache::put(SendWorker::deadRunsKey($this->phone->id), 5, 3600); // many in a row change nothing
+        $this->assertSame(SendWorker::DONE, $this->work());
+
+        $this->assertSame(['@bob', '@carol', '@dave'], $this->telegram->sentTo());
+        $this->assertSame('worker_timeout', $group->messages()->where('peer', '@alice')->value('error_key'));
+        $this->assertSame(MessageStatus::Failed, $group->messages()->where('peer', '@alice')->first()->status);
+        $this->assertFalse($this->phone->refresh()->isFlooded());
         $event = SystemEvent::query()->where('error_key', 'worker_timeout')->firstOrFail();
         $this->assertSame('@alice', $event->context['peer']);
         $this->assertNull(Cache::get(SendWorker::unfinishedKey($this->phone->id)));
         $this->assertNull(Cache::get(SendWorker::deadRunsKey($this->phone->id))); // a run that returned resets the count
+        Bus::assertDispatched(CheckAccountSession::class, fn ($job) => $job->accountId === $this->phone->id);
+    }
 
-        // the third dead run in a row pauses the account and checks its session
-        $second = $this->send(['@erin']);
-        Cache::put(SendWorker::deadRunsKey($this->phone->id), 2, 3600);
-        $died();
+    public function test_a_network_error_on_one_peer_does_not_hold_back_the_others(): void
+    {
+        $this->telegram->failPeer('@alice', 'RPC_CALL_FAIL');
+        $group = $this->send(['@alice', '@bob', '@carol']);
+
         $this->assertSame(SendWorker::DONE, $this->work());
 
-        $this->phone->refresh();
-        $this->assertTrue($this->phone->isFlooded());
-        $this->assertSame('worker_timeout', $this->phone->last_error);
-        $this->assertSame(1, $second->messages()->where('status', MessageStatus::Pending)->count());
-        Bus::assertDispatched(CheckAccountSession::class, fn ($job) => $job->accountId === $this->phone->id);
+        $this->assertSame(['@bob', '@carol'], array_values(array_diff($this->telegram->sentTo(), ['@alice'])));
+        $alice = $group->messages()->where('peer', '@alice')->first();
+        $this->assertSame(MessageStatus::Pending, $alice->status);
+        $this->assertTrue($alice->send_at->isFuture(), 'it goes again later, after the others');
+        $this->assertSame(0, Cache::get(SendAccountMessages::failuresKey($this->phone->id), 0));
     }
 
     public function test_the_send_page_says_why_messages_wait(): void

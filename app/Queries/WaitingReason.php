@@ -93,8 +93,10 @@ final class WaitingReason
             return ['retrying', 'warning', ['n' => $failures]];
         }
 
-        $nextAt = $group->messages()->where('status', MessageStatus::Pending)->min('send_at');
-        if ($nextAt !== null && now()->lt($nextAt)) {
+        $pending = $group->messages()->where('status', MessageStatus::Pending);
+        $nextAt = (clone $pending)->min('send_at');
+        $dueNow = (clone $pending)->where(fn ($q) => $q->whereNull('send_at')->orWhere('send_at', '<=', now()))->exists();
+        if ($nextAt !== null && ! $dueNow) {
             return ['scheduled', 'info', ['at' => $this->moment(Carbon::parse($nextAt))]];
         }
 
