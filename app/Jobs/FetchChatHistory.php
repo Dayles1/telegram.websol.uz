@@ -40,9 +40,18 @@ final class FetchChatHistory implements ShouldQueue
             return;
         }
 
+        // A fetch can hold a process for minutes: only in a free slot, so a login never waits behind it.
+        $slot = WorkerSlots::take($this->timeout);
+        if ($slot === null) {
+            self::dispatch($this->chatLogGroupId, $this->limit)->delay(now()->addSeconds(30));
+
+            return;
+        }
+
         // Never next to a send job on the same session: come back when it is done.
         $lock = ProcessLock::for("account-{$phone->id}");
         if (! $lock->acquire()) {
+            $slot->release();
             self::dispatch($this->chatLogGroupId, $this->limit)->delay(now()->addMinutes(2));
 
             return;
@@ -57,6 +66,7 @@ final class FetchChatHistory implements ShouldQueue
                 : $events->warning(EventKind::Api, 'Chat history fetch failed', ['peer' => $group->peer, 'raw' => $error->raw], $phone->id, errorKey: $error->key);
         } finally {
             $lock->release();
+            $slot->release();
         }
     }
 }

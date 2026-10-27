@@ -26,7 +26,7 @@ All Telegram calls go through `App\Telegram\Contracts\TelegramGateway` /
 - Never two full processes on one session: `App\Telegram\ProcessLock::for("account-{id}")`
   (flock, released by the OS on crash).
 - One configuration for every session: `App\Telegram\Madeline\SettingsFactory` (same device
-  model, no prompts, Madeline log in `storage/logs/madeline/`, never in `public/`). Values come
+  model, `lang_code` by the phone's country (`telegram.languages`), no prompts, Madeline log in `storage/logs/madeline/`, never in `public/`). Values come
   from `config/telegram.php`; `env()` only in config.
 - Vendor calls are wrapped in `App\Telegram\Madeline\NoticeShield::guard()`.
 - A queue worker that opened a session exits after that job (`MadelineGateway::endWorkerAfterJob`,
@@ -56,7 +56,7 @@ Later: `authorized → revoked` (dead session), `authorized → logging_out → 
    (`Attachments`, local disk, never public) and repeat (`SendLoop`), group + one pending row
    per peer, then `SendAccountMessages::dispatch($phoneId)`. Nothing is sent here.
 2. `App\Jobs\SendAccountMessages` (the one queue `telegramWebsol` from `DB_QUEUE`, `ShouldBeUnique`
-   per account) takes one of `worker.send_slots` (else `release(15)`, so a
+   per account) takes one of `App\Jobs\WorkerSlots` (`worker.send_slots`, shared with `FetchChatHistory`; else `release(15)`, so a
    process stays free for logins) and runs `SendWorker` for `worker.max_runtime` seconds; time up
    with rows left → `release(pause)`, failing → `release(backoff)`, busy → `release(30)`.
 3. `App\Jobs\MinuteTick` — queued by the worker itself once a minute (`Looping` listener in

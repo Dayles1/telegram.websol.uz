@@ -13,6 +13,7 @@ use App\Jobs\SendAccountMessages;
 use App\Jobs\StartLoopRound;
 use App\Models\Attachment;
 use App\Models\Catalog;
+use App\Models\ChatLogGroup;
 use App\Models\MessageGroup;
 use App\Models\SendLoop;
 use App\Models\User;
@@ -306,6 +307,24 @@ class SendQueueTest extends TestCase
         $job->assertNotReleased();
         $this->assertSame(['@alice'], $this->telegram->sentTo());
         $this->assertTrue(Cache::lock('telegram:send-slot:0', 60)->get(), 'the job gives its slot back');
+    }
+
+    public function test_a_chat_history_fetch_waits_for_a_slot_so_a_login_never_waits_behind_it(): void
+    {
+        Bus::fake([FetchChatHistory::class]);
+        config(['telegram.worker.send_slots' => 1]);
+        $chat = ChatLogGroup::query()->create(['user_phone_id' => $this->phone->id, 'peer' => '@alice', 'status' => 'active']);
+        $taken = Cache::lock('telegram:send-slot:0', 60);
+        $taken->get();
+
+        app()->call([new FetchChatHistory($chat->id), 'handle']);
+        $this->assertSame([], array_filter($this->telegram->calls, fn ($c) => $c[0] === 'open'), 'no session opened without a slot');
+        Bus::assertDispatched(FetchChatHistory::class, fn ($job) => $job->chatLogGroupId === $chat->id);
+
+        $taken->release();
+        app()->call([new FetchChatHistory($chat->id), 'handle']);
+        $this->assertCount(1, array_filter($this->telegram->calls, fn ($c) => $c[0] === 'open'));
+        $this->assertTrue(Cache::lock('telegram:send-slot:0', 60)->get(), 'the fetch gives its slot back');
     }
 
     public function test_the_worker_queues_the_minute_tick_once_a_minute(): void

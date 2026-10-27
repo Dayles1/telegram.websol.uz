@@ -48,7 +48,7 @@ app/
   Settings/                 runtime settings (app_settings over config/telegram.php defaults)
   ChatLogs/                 chat history copy (API fetch-messages / chat-logs)
   Jobs/                     everything on the one queue "telegramWebsol": SendAccountMessages (unique per
-                            account, at most worker.send_slots at once), MinuteTick (the clock, queued by the
+                            account, with FetchChatHistory at most worker.send_slots at once: Jobs/WorkerSlots), MinuteTick (the clock, queued by the
                             worker itself; no cron), StartLoopRound, Accounts/* login steps, FetchChatHistory;
                             ids only in payloads
   Console/Commands/         telegram:check-sessions, chat-logs:refetch, monitoring:prune (MinuteTick runs them daily)

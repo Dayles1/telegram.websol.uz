@@ -6,7 +6,6 @@ namespace App\Jobs;
 
 use App\Sending\SendWorker;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,8 +21,8 @@ use Illuminate\Support\Facades\Cache;
  * comes back with growing delays. The minute tick queues it for every account with
  * due messages, so nothing waits forever if a job is lost.
  *
- * It shares the one queue with logins and checks, so at most worker.send_slots of
- * these run at once and the rest of the worker processes stay free for them.
+ * It shares the one queue with logins and checks, so it takes one of the
+ * WorkerSlots and the rest of the worker processes stay free for them.
  */
 final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 {
@@ -53,7 +52,7 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
 
     public function handle(SendWorker $worker): void
     {
-        $slot = $this->takeSlot();
+        $slot = WorkerSlots::take($this->timeout);
         if ($slot === null) {
             $this->release(15);
 
@@ -83,19 +82,6 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
     public static function failuresKey(int $accountId): string
     {
         return "telegram:send-failures:{$accountId}";
-    }
-
-    /** One of worker.send_slots; a slot of a killed process frees itself after the job's timeout. */
-    private function takeSlot(): ?Lock
-    {
-        for ($i = 0; $i < max(1, (int) config('telegram.worker.send_slots')); $i++) {
-            $lock = Cache::lock("telegram:send-slot:{$i}", $this->timeout);
-            if ($lock->get()) {
-                return $lock;
-            }
-        }
-
-        return null;
     }
 
     /**
