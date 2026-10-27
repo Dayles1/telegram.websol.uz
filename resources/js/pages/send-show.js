@@ -20,6 +20,7 @@ export default function sendShowPage({ urls, t, captionMax }) {
         t,
         captionMax,
         group: null,
+        waiting: null,
         messages: [],
         meta: { current_page: 1, last_page: 1, total: 0 },
         editableCatalogs: [],
@@ -73,6 +74,7 @@ export default function sendShowPage({ urls, t, captionMax }) {
 
             const wasActive = this.group?.active;
             this.group = data.group;
+            this.waiting = data.waiting ?? null;
             this.messages = data.messages;
             this.meta = data.meta;
             this.editableCatalogs = data.editable_catalogs;

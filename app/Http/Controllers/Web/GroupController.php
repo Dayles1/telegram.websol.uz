@@ -12,6 +12,7 @@ use App\Models\MessageGroup;
 use App\Models\SendLoop;
 use App\Models\UserPhone;
 use App\Queries\GroupList;
+use App\Queries\WaitingReason;
 use App\Sending\GroupProgress;
 use App\Sending\MassSend;
 use Illuminate\Http\JsonResponse;
@@ -71,7 +72,7 @@ final class GroupController extends Controller
     }
 
     /** Polled while the send runs: the group, and one page of its messages. */
-    public function progress(Request $request, MessageGroup $group): JsonResponse
+    public function progress(Request $request, MessageGroup $group, WaitingReason $reasons): JsonResponse
     {
         Gate::authorize('view', $group);
         $status = MessageStatus::tryFrom((string) $request->query('status'));
@@ -92,6 +93,7 @@ final class GroupController extends Controller
 
         return response()->json([
             'group' => new GroupResource($group),
+            'waiting' => $this->waiting($request, $group, $reasons->of($group)),
             'messages' => MessageResource::collection($messages->getCollection()),
             'meta' => ['current_page' => $messages->currentPage(), 'last_page' => $messages->lastPage(), 'total' => $messages->total()],
             'editable_catalogs' => $group->catalogs
@@ -99,6 +101,29 @@ final class GroupController extends Controller
                 ->map(fn ($c) => ['id' => $c->id, 'title' => $c->title])
                 ->values(),
         ]);
+    }
+
+    /**
+     * "Why is it still queued" for the page, in the viewer's language.
+     *
+     * @param  array{key: string, tone: string, params: array<string, string|int>, problem: ?array<string, mixed>}|null  $reason
+     * @return array<string, mixed>|null
+     */
+    private function waiting(Request $request, MessageGroup $group, ?array $reason): ?array
+    {
+        if ($reason === null) {
+            return null;
+        }
+        $phone = UserPhone::query()->with('user.role')->find($group->user_phone_id);
+
+        return [
+            'key' => $reason['key'],
+            'tone' => $reason['tone'],
+            'title' => __("sends.waiting.{$reason['key']}.title", $reason['params']),
+            'hint' => __("sends.waiting.{$reason['key']}.hint", $reason['params']),
+            'problem' => $reason['problem'],
+            'phone_url' => $phone !== null && $request->user()->can('view', $phone) ? route('phones.show', $phone) : null,
+        ];
     }
 
     public function cancel(Request $request, MessageGroup $group, GroupProgress $progress): JsonResponse

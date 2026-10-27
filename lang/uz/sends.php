@@ -105,6 +105,66 @@ return [
         'no_peers' => 'Kataloglarda qabul qiluvchi qolmadi',
     ],
 
+    // Why the queued messages are not going out right now (App\Queries\WaitingReason)
+    'waiting_eyebrow' => 'Nega navbatda',
+    'last_problem' => 'Akkauntning oxirgi muammosi',
+    'problem_times' => ':n marta',
+    'open_account' => 'Akkauntni ochish',
+    'waiting' => [
+        'account_missing' => [
+            'title' => 'Akkaunt o‘chirilgan',
+            'hint' => 'Bu yuborishning akkaunti panelda yo‘q, xabarlar yuborilmaydi. Yuborishni to‘xtating.',
+        ],
+        'account_not_ready' => [
+            'title' => 'Akkaunt ulanmagan: :status',
+            'hint' => 'Akkaunt sessiyasi yo‘q yoki yopilgan, shuning uchun xabarlar ketmaydi. Bir daqiqa ichida ular «Sessiya yopilgan» xatosi bilan yopiladi. Akkauntni qayta ulang, keyin «Yetmaganlarni qayta yuborish»ni bosing.',
+        ],
+        'flood_wait' => [
+            'title' => 'Telegram kutishni so‘radi: :until gacha pauza',
+            'hint' => 'Telegram bu akkauntga vaqtincha yozishni cheklagan. Pauza tugagach yuborish o‘zi davom etadi.',
+        ],
+        'peer_flood' => [
+            'title' => 'Akkaunt spam uchun cheklangan: :until gacha dam oladi',
+            'hint' => 'Telegram PEER_FLOOD qaytardi: bu akkaunt notanish odamlarga yozolmaydi. Dam olish tugagach yuborish o‘zi davom etadi. Takrorlansa, kamroq yuboring yoki boshqa akkauntdan foydalaning.',
+        ],
+        'frozen' => [
+            'title' => 'Akkaunt Telegram tomonidan muzlatilgan',
+            'hint' => 'Yuborish :until gacha to‘xtatildi. Akkauntni Telegram ilovasida tekshiring.',
+        ],
+        'paused_hanging' => [
+            'title' => 'Akkaunt :until gacha to‘xtatildi: yuborish jarayoni qayta-qayta qotib qoldi',
+            'hint' => 'Telegram bu akkaunt so‘rovlariga javob bermadi. Ko‘pincha sessiya telefondan yopilganda shunday bo‘ladi. Sessiya avtomatik tekshirilmoqda. Akkaunt «Ulanmagan» bo‘lib qolsa, uni qayta ulang.',
+        ],
+        'queue_down' => [
+            'title' => 'Navbat workeri ishlamayapti',
+            'hint' => 'Hech bir akkauntdan xabar ketmayapti. Serverda supervisor jarayonini tekshiring (Monitoring → Umumiy ko‘rinish).',
+        ],
+        'daily_limit' => [
+            'title' => 'Kunlik limitga yetildi (:limit ta xabar)',
+            'hint' => 'Bu akkaunt bugun limitgacha yubordi. Qolgan xabarlar ertaga ketadi.',
+        ],
+        'hanging' => [
+            'title' => 'Yuborish jarayoni :minutes daqiqadan beri Telegram javobini kutyapti',
+            'hint' => 'Jarayon vaqt limitidan oshdi va to‘xtatiladi. Takrorlansa, akkaunt pauzaga qo‘yiladi va sessiyasi tekshiriladi.',
+        ],
+        'hung_before' => [
+            'title' => 'Oldingi yuborish jarayoni qotib qoldi (:n marta ketma-ket)',
+            'hint' => 'Telegram javob bermagani uchun jarayon to‘xtatildi. Yuborish qayta urinib ko‘riladi. Bu yana ikki marta takrorlansa, akkaunt pauzaga qo‘yiladi va sessiyasi tekshiriladi.',
+        ],
+        'retrying' => [
+            'title' => 'Akkaunt sessiyasini ochib bo‘lmayapti (:n marta)',
+            'hint' => 'Yuborish biroz kutib, qayta urinadi. Sababi quyida, akkauntning oxirgi muammosida ko‘rsatilgan.',
+        ],
+        'scheduled' => [
+            'title' => 'Xabarlar :at ga rejalashtirilgan',
+            'hint' => 'Belgilangan vaqtgacha yuborilmaydi.',
+        ],
+        'waiting_turn' => [
+            'title' => 'Navbat kutilmoqda',
+            'hint' => 'Akkaunt yuborishga tayyor. Bo‘sh jarayon yoki xabarlar orasidagi pauza kutilmoqda, odatda bir necha soniya yoki daqiqa.',
+        ],
+    ],
+
     'js' => [
         'finished' => 'Yuborish tugadi',
         'stop_all_title' => 'Barcha faol yuborishlar to‘xtatilsinmi?',

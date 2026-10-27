@@ -13,6 +13,11 @@
         ['key' => 'pending', 'label' => __('sends.pending'), 'bar' => 'bg-gray-200 dark:bg-gray-700', 'text' => 'text-gray-950 dark:text-white'],
         ['key' => 'canceled', 'label' => __('sends.canceled'), 'bar' => 'bg-gray-400 dark:bg-gray-500', 'text' => 'text-gray-500'],
     ];
+    $waitingTones = [
+        'error' => 'border-error-200 bg-error-50 text-error-800 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-200',
+        'warning' => 'border-warning-200 bg-warning-50 text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200',
+        'info' => 'border-[var(--line)] bg-[var(--surface)] text-gray-700 dark:text-gray-300',
+    ];
     $strings = __('sends.js') + [
         'loop_reasons' => __('sends.loop_reasons'),
         'loop_due' => __('sends.loop_due'),
@@ -64,6 +69,42 @@
 
         <template x-if="group">
             <div class="space-y-5">
+                {{-- Why the queued messages are not going out right now (App\Queries\WaitingReason) --}}
+                <template x-if="waiting">
+                    <section class="rounded-2xl border p-4 text-[13px]" :class="@js($waitingTones)[waiting.tone] ?? @js($waitingTones['info'])">
+                        <div class="flex items-start gap-3">
+                            <x-ui.icon name="alert" class="mt-0.5 h-5 w-5 shrink-0" x-show="waiting.tone !== 'info'" />
+                            <x-ui.icon name="clock" class="mt-0.5 h-5 w-5 shrink-0" x-show="waiting.tone === 'info'" />
+                            <div class="min-w-0 flex-1 space-y-2">
+                                <div>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide opacity-70">{{ __('sends.waiting_eyebrow') }}</p>
+                                    <p class="mt-0.5 text-sm font-semibold" x-text="waiting.title"></p>
+                                    <p class="mt-1 opacity-90" x-text="waiting.hint"></p>
+                                </div>
+                                <template x-if="waiting.problem">
+                                    <div class="rounded-xl bg-white/70 px-3 py-2 text-xs text-gray-800 dark:bg-black/30 dark:text-gray-200">
+                                        <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                                            <span class="font-semibold">{{ __('sends.last_problem') }}</span>
+                                            <span class="c-muted tabular-nums">
+                                                <span x-text="$fmt.relative(waiting.problem.at)"></span>
+                                                <span x-show="waiting.problem.occurrences > 1" x-text="'· ' + @js(__('sends.problem_times')).replace(':n', waiting.problem.occurrences)"></span>
+                                            </span>
+                                        </div>
+                                        <p class="mt-1" x-show="waiting.problem.label" x-text="waiting.problem.label"></p>
+                                        <p class="c-muted mt-0.5 c-break" x-text="waiting.problem.message"></p>
+                                        <code class="c-code c-break mt-1.5 block whitespace-pre-wrap" x-show="waiting.problem.raw" x-text="waiting.problem.raw"></code>
+                                    </div>
+                                </template>
+                                <template x-if="waiting.phone_url">
+                                    <a :href="waiting.phone_url" class="inline-flex items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline">
+                                        {{ __('sends.open_account') }} <x-ui.icon name="chevron-right" class="h-3.5 w-3.5" />
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </section>
+                </template>
+
                 <div class="grid gap-5 lg:grid-cols-[1fr_340px]">
                     <div class="min-w-0 space-y-5">
                         {{-- Progress --}}

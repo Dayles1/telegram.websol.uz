@@ -148,6 +148,33 @@ class SendingTest extends TestCase
         Bus::assertDispatched(CheckAccountSession::class, fn ($job) => $job->accountId === $this->phone->id);
     }
 
+    public function test_the_send_page_says_why_messages_wait(): void
+    {
+        Cache::put('queue:heartbeat', time(), 600); // a live worker (QueueHealth::beat() is throttled per process)
+        $group = $this->send(['@alice']);
+        $reason = fn () => $this->actingAs($this->user)->getJson(route('sends.progress', $group))->assertOk()->json('waiting');
+
+        $this->assertSame('waiting_turn', $reason()['key']);
+
+        $this->phone->update(['flood_until' => now()->addMinutes(10), 'last_error' => 'peer_flood']);
+        $this->assertSame('peer_flood', $reason()['key']);
+
+        $this->phone->update(['flood_until' => null, 'last_error' => null]);
+        Cache::put(SendAccountMessages::failuresKey($this->phone->id), 2, 3600);
+        app(EventRecorder::class)->warning(EventKind::Worker, 'Could not open the session', ['raw' => 'The pool was shut down'], $this->phone->id, errorKey: 'unknown_error');
+        $waiting = $reason();
+        $this->assertSame('retrying', $waiting['key']);
+        $this->assertSame('The pool was shut down', $waiting['problem']['raw']);
+        $this->assertSame(route('phones.show', $this->phone), $waiting['phone_url']);
+
+        $this->phone->update(['status' => AccountStatus::LoggedOut, 'session_path' => null]);
+        $this->assertSame('account_not_ready', $reason()['key']);
+
+        $this->work();
+        app(SendScheduler::class)->sweep();
+        $this->assertNull($reason()); // nothing waits any more
+    }
+
     public function test_cancel_stops_the_rest(): void
     {
         $group = $this->send(['@a1', '@a2', '@a3']);
