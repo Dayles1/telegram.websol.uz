@@ -19,6 +19,7 @@ class ErrorMapTest extends TestCase
             'slow mode' => ['SLOWMODE_WAIT_30', 'slowmode_wait', ErrorKind::Wait, 30],
             'peer flood' => ['PEER_FLOOD', 'peer_flood', ErrorKind::PeerFlood, null],
             'revoked' => ['AUTH_KEY_UNREGISTERED', 'session_revoked', ErrorKind::DeadSession, null],
+            'logged out from the phone (madeline)' => ["!!!!!!! WARNING !!!!!!!\nTelegram's flood prevention system suspended this account.\nTo continue, manual verification is required.", 'session_revoked', ErrorKind::DeadSession, null],
             'banned account' => ['USER_DEACTIVATED_BAN', 'account_banned', ErrorKind::DeadSession, null],
             'deleted receiver is not our ban' => ['INPUT_USER_DEACTIVATED', 'peer_deactivated', ErrorKind::Peer, null],
             'unknown username' => ['USERNAME_NOT_OCCUPIED', 'peer_not_found', ErrorKind::Peer, null],

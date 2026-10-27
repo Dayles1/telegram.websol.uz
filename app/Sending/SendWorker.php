@@ -9,6 +9,7 @@ use App\Enums\EventKind;
 use App\Enums\GroupStatus;
 use App\Enums\MessageStatus;
 use App\Enums\TaskStatus;
+use App\Jobs\Accounts\CheckAccountSession;
 use App\Models\MessageGroup;
 use App\Models\MessageTask;
 use App\Models\TelegramMessage;
@@ -54,6 +55,11 @@ final class SendWorker
     public const MORE = 4;
 
     private const TRANSIENT_STREAK_LIMIT = 5;
+
+    /** Runs in a row that never returned before the account pauses, and for how long. */
+    public const DEAD_RUNS_LIMIT = 3;
+
+    public const DEAD_RUNS_PAUSE_MINUTES = 30;
 
     /** @var array<int, array{text: string, file: ?OutgoingFile, missing: bool}> group id => what to send */
     private array $payloads = [];
@@ -115,9 +121,17 @@ final class SendWorker
         Cache::put(self::runningKey($accountId), ['pid' => getmypid(), 'started_at' => time()], $maxRuntime + 300);
 
         try {
-            return $this->work($accountId);
+            if ($this->previousRunDied($accountId)) {
+                return self::DONE; // paused
+            }
+            $this->markUnfinished($accountId, null);
+            $outcome = $this->work($accountId);
+            Cache::forget(self::deadRunsKey($accountId));
+
+            return $outcome;
         } finally {
             Cache::forget(self::runningKey($accountId));
+            Cache::forget(self::unfinishedKey($accountId));
             $lock->release();
         }
     }
@@ -126,6 +140,71 @@ final class SendWorker
     public static function runningKey(int $accountId): string
     {
         return "telegram:send-running:{$accountId}";
+    }
+
+    /**
+     * Set for the whole run and removed when it returns. Still there at the next run
+     * means the process never got back: killed at the job timeout (a Telegram call
+     * that hung) or died. Neither leaves an exception, so this is the only trace.
+     */
+    public static function unfinishedKey(int $accountId): string
+    {
+        return "telegram:send-unfinished:{$accountId}";
+    }
+
+    /** Runs in a row of this account that never returned. */
+    public static function deadRunsKey(int $accountId): string
+    {
+        return "telegram:send-dead-runs:{$accountId}";
+    }
+
+    private function markUnfinished(int $accountId, ?int $messageId): void
+    {
+        $started = Cache::get(self::unfinishedKey($accountId))['started_at'] ?? time();
+        Cache::put(self::unfinishedKey($accountId), [
+            'pid' => getmypid(),
+            'started_at' => $started,
+            'message_id' => $messageId,
+        ], now()->addDay());
+    }
+
+    /**
+     * Records a previous run that never returned; after DEAD_RUNS_LIMIT of them in a
+     * row the account pauses (its messages would otherwise wait in silence for hours)
+     * and its session is checked. True when the account is paused now.
+     */
+    private function previousRunDied(int $accountId): bool
+    {
+        $previous = Cache::pull(self::unfinishedKey($accountId));
+        if (! is_array($previous)) {
+            return false;
+        }
+
+        Cache::add(self::deadRunsKey($accountId), 0, now()->addDay());
+        $deadRuns = (int) Cache::increment(self::deadRunsKey($accountId));
+        $messageId = $previous['message_id'] ?? null;
+        $this->events->error(EventKind::Worker, 'A send run of this account never finished: it hung on Telegram until the time limit or the process died', [
+            'started_at' => date('Y-m-d H:i:s', (int) ($previous['started_at'] ?? 0)),
+            'pid' => $previous['pid'] ?? null,
+            'message_id' => $messageId,
+            'peer' => $messageId !== null ? TelegramMessage::query()->whereKey($messageId)->value('peer') : null,
+            'in_a_row' => $deadRuns,
+        ], $accountId, errorKey: 'worker_timeout');
+
+        if ($deadRuns < self::DEAD_RUNS_LIMIT) {
+            return false;
+        }
+
+        Cache::forget(self::deadRunsKey($accountId));
+        $until = now()->addMinutes(self::DEAD_RUNS_PAUSE_MINUTES);
+        UserPhone::query()->whereKey($accountId)->update(['flood_until' => $until, 'last_error' => 'worker_timeout']);
+        $this->events->critical(EventKind::Worker, 'Send runs of this account keep hanging, the account pauses and its session is checked', [
+            'until' => $until->toDateTimeString(),
+            'in_a_row' => $deadRuns,
+        ], $accountId, errorKey: 'worker_timeout');
+        CheckAccountSession::dispatch($accountId);
+
+        return true;
     }
 
     private function work(int $accountId): int
@@ -234,6 +313,7 @@ final class SendWorker
                 ->update(['status' => MessageStatus::Sending, 'claimed_at' => now(), 'updated_at' => now()]);
 
             if ($claimed === 1) {
+                $this->markUnfinished($account->id, $candidate->id);
                 $this->progress->markStarted($candidate->message_group_id);
 
                 return $candidate->refresh();

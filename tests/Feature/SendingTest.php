@@ -3,17 +3,24 @@
 namespace Tests\Feature;
 
 use App\Enums\AccountStatus;
+use App\Enums\EventKind;
 use App\Enums\GroupStatus;
 use App\Enums\MessageStatus;
+use App\Jobs\Accounts\CheckAccountSession;
+use App\Jobs\SendAccountMessages;
 use App\Models\Catalog;
 use App\Models\MessageGroup;
 use App\Models\SystemEvent;
 use App\Models\User;
 use App\Models\UserPhone;
+use App\Monitoring\EventRecorder;
+use App\Monitoring\QueueHealth;
 use App\Sending\SendScheduler;
 use App\Sending\SendWorker;
 use App\Settings\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class SendingTest extends TestCase
@@ -100,6 +107,45 @@ class SendingTest extends TestCase
 
         app(SendScheduler::class)->sweep();
         $this->assertSame(GroupStatus::Failed, $group->refresh()->status);
+    }
+
+    public function test_a_session_closed_from_the_phone_retires_the_account(): void
+    {
+        // Madeline logs the session out itself and throws this text instead of AUTH_KEY_UNREGISTERED
+        $this->telegram->failPeer('@alice', "!!!!!!! WARNING !!!!!!!\nTelegram's flood prevention system suspended this account.");
+        $group = $this->send(['@alice', '@bob']);
+
+        $this->assertSame(SendWorker::NOT_STARTABLE, $this->work());
+
+        $this->assertSame(AccountStatus::Revoked, $this->phone->refresh()->status);
+        $this->assertSame(2, $group->messages()->where('error_key', 'session_revoked')->count());
+    }
+
+    public function test_a_run_that_never_returned_is_recorded_and_repeated_ones_pause_the_account(): void
+    {
+        Bus::fake([SendAccountMessages::class, CheckAccountSession::class]);
+        $group = $this->send(['@alice', '@bob', '@carol', '@dave']);
+        $died = fn () => Cache::put(SendWorker::unfinishedKey($this->phone->id), ['pid' => 1, 'started_at' => time() - 400, 'message_id' => $group->messages()->value('id')], 3600);
+
+        $died();
+        $this->assertSame(SendWorker::DONE, $this->work()); // still sends after one
+        $this->assertSame(4, $group->messages()->where('status', MessageStatus::Sent)->count());
+        $event = SystemEvent::query()->where('error_key', 'worker_timeout')->firstOrFail();
+        $this->assertSame('@alice', $event->context['peer']);
+        $this->assertNull(Cache::get(SendWorker::unfinishedKey($this->phone->id)));
+        $this->assertNull(Cache::get(SendWorker::deadRunsKey($this->phone->id))); // a run that returned resets the count
+
+        // the third dead run in a row pauses the account and checks its session
+        $second = $this->send(['@erin']);
+        Cache::put(SendWorker::deadRunsKey($this->phone->id), 2, 3600);
+        $died();
+        $this->assertSame(SendWorker::DONE, $this->work());
+
+        $this->phone->refresh();
+        $this->assertTrue($this->phone->isFlooded());
+        $this->assertSame('worker_timeout', $this->phone->last_error);
+        $this->assertSame(1, $second->messages()->where('status', MessageStatus::Pending)->count());
+        Bus::assertDispatched(CheckAccountSession::class, fn ($job) => $job->accountId === $this->phone->id);
     }
 
     public function test_cancel_stops_the_rest(): void

@@ -34,6 +34,9 @@ final class ErrorMap
         'SESSION_REVOKED' => ['session_revoked', ErrorKind::DeadSession],
         'SESSION_EXPIRED' => ['session_revoked', ErrorKind::DeadSession],
         'SESSION_NOT_AUTHORIZED' => ['session_revoked', ErrorKind::DeadSession],
+        // Logged out from the phone (or banned): Madeline logs the session out itself and throws
+        // Amp\SignalException with this text instead of AUTH_KEY_UNREGISTERED / SESSION_REVOKED.
+        "Telegram's flood prevention system suspended this account" => ['session_revoked', ErrorKind::DeadSession],
         'SESSION_MISSING' => ['session_missing', ErrorKind::DeadSession],
         'SESSION_BUSY' => ['session_busy', ErrorKind::Transient],
         'PHONE_CODE_INVALID' => ['code_invalid', ErrorKind::CodeInvalid],

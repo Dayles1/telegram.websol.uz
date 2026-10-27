@@ -47,7 +47,8 @@ final class CheckAccountSession extends AccountJob
 
         // A logout (or a new login) that started meanwhile wins over this check.
         $account->refresh();
-        $columns = $profile->toColumns() + ['last_checked_at' => now(), 'last_error' => null];
+        // a pause keeps its reason (peer_flood, worker_timeout ...) until it ends
+        $columns = $profile->toColumns() + ['last_checked_at' => now(), 'last_error' => $account->isFlooded() ? $account->last_error : null];
         if (in_array($account->status, [AccountStatus::Authorized, AccountStatus::Revoked], true)) {
             $columns['status'] = AccountStatus::Authorized;
         }
