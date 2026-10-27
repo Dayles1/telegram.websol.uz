@@ -83,6 +83,11 @@ return [
         // on the queue. Its timeout is max_runtime + 120, which must stay below the queue's
         // retry_after (DB_QUEUE_RETRY_AFTER, 400), or a running job would be started twice.
         'max_runtime' => 240,
+        // Messages one send run takes before the job goes back on the queue. The process that
+        // opened a session exits after its job, so 1 = a fresh process and session for every
+        // message. 0 = as many as max_runtime allows: one session for the run, faster, and a
+        // file is uploaded once per run instead of once per peer.
+        'messages_per_run' => (int) env('TELEGRAM_MESSAGES_PER_RUN', 1),
         // How many long Telegram jobs (sends, chat history; App\Jobs\WorkerSlots) run at the same
         // time. The queue's supervisor program needs at least one process more (numprocs), so a
         // login code never waits behind them.

@@ -11,6 +11,7 @@ use App\Jobs\FetchChatHistory;
 use App\Jobs\MinuteTick;
 use App\Jobs\SendAccountMessages;
 use App\Jobs\StartLoopRound;
+use App\Jobs\WorkerSlots;
 use App\Models\Attachment;
 use App\Models\Catalog;
 use App\Models\ChatLogGroup;
@@ -298,7 +299,7 @@ class SendQueueTest extends TestCase
 
         $job = (new SendAccountMessages($this->phone->id))->withFakeQueueInteractions();
         $job->handle(app(SendWorker::class)->sleepUsing(fn () => null));
-        $job->assertReleased(15);
+        $job->assertReleased(WorkerSlots::RETRY_SECONDS);
         $this->assertSame([], $this->telegram->sentTo(), 'the other processes stay free for logins');
 
         $taken->release();
@@ -307,6 +308,26 @@ class SendQueueTest extends TestCase
         $job->assertNotReleased();
         $this->assertSame(['@alice'], $this->telegram->sentTo());
         $this->assertTrue(Cache::lock('telegram:send-slot:0', 60)->get(), 'the job gives its slot back');
+    }
+
+    public function test_a_send_whose_time_is_up_lets_a_waiting_account_take_its_slot(): void
+    {
+        config(['telegram.worker.send_slots' => 1, 'telegram.worker.max_runtime' => 0]);
+        $this->api(['peer' => '@alice', 'message' => 'hi'])->assertOk();
+
+        $job = (new SendAccountMessages($this->phone->id))->withFakeQueueInteractions();
+        $job->handle(app(SendWorker::class)->sleepUsing(fn () => null));
+        $job->assertReleased(0);
+
+        // another account found the only slot taken
+        $taken = Cache::lock('telegram:send-slot:0', 60);
+        $taken->get();
+        (new SendAccountMessages($this->phone->id + 1))->withFakeQueueInteractions()->handle(app(SendWorker::class));
+        $taken->release();
+
+        $job = (new SendAccountMessages($this->phone->id))->withFakeQueueInteractions();
+        $job->handle(app(SendWorker::class)->sleepUsing(fn () => null));
+        $job->assertReleased(WorkerSlots::YIELD_SECONDS);
     }
 
     public function test_a_chat_history_fetch_waits_for_a_slot_so_a_login_never_waits_behind_it(): void

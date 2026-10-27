@@ -57,15 +57,19 @@ Later: `authorized → revoked` (dead session), `authorized → logging_out → 
    per peer, then `SendAccountMessages::dispatch($phoneId)`. Nothing is sent here.
 2. `App\Jobs\SendAccountMessages` (the one queue `telegramWebsol` from `DB_QUEUE`, `ShouldBeUnique`
    per account) takes one of `App\Jobs\WorkerSlots` (`worker.send_slots`, shared with `FetchChatHistory`; else `release(15)`, so a
-   process stays free for logins) and runs `SendWorker` for `worker.max_runtime` seconds; time up
-   with rows left → `release(pause)`, failing → `release(backoff)`, busy → `release(30)`.
+   process stays free for logins) and runs `SendWorker` for `worker.max_runtime` seconds or
+   `worker.messages_per_run` messages (default 1: every message in a fresh process and session,
+   since a process that opened a session exits after its job); time up
+   with rows left → `release(pause)` (at least `YIELD_SECONDS` while another job waits for a slot,
+   so the slots go round all accounts), failing → `release(backoff)`, busy → `release(30)`.
 3. `App\Jobs\MinuteTick` — queued by the worker itself once a minute (`Looping` listener in
    `AppServiceProvider`; no cron) — runs `App\Sending\SendScheduler::tick()`: sweeps stale claims
    and orphaned rows, starts overdue repeat rounds, queues every account with due rows, deletes
    attachments nothing can send any more (`telegram.attachments.keep_minutes`); then the daily
    chores (session checks, chat history, pruning) once a day.
 4. `App\Sending\SendWorker` claims each row with a conditional UPDATE
-   (`pending → sending`) — a row can't go out twice; paces with the settings' delays (also
+   (`pending → sending`) — a row can't go out twice; the groups of the account take turns
+   (one message each, by `message_group_id`); paces with the settings' delays (also
    across runs, from `last_sent_at`); checks the daily limit; re-reads the account every
    message; yields after the message in hand on SIGTERM or `queue:restart`. A file goes with
    the text as caption (≤1024, longer text follows as a second message); the upload is

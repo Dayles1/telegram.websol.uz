@@ -24,6 +24,9 @@ abstract class TestCase extends BaseTestCase
         $this->app->instance(TelegramGateway::class, $this->telegram);
         $this->withoutVite();
 
+        // One worker run sends everything due, unless a test is about messages_per_run.
+        config(['telegram.worker.messages_per_run' => 0]);
+
         // Sending runs when a test says so (SendWorker::run), not on dispatch.
         Bus::fake([SendAccountMessages::class, StartLoopRound::class]);
     }

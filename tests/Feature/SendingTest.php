@@ -70,6 +70,31 @@ class SendingTest extends TestCase
         $this->assertSame(2, $group->messages()->where('status', MessageStatus::Sent)->whereNotNull('telegram_message_id')->count());
     }
 
+    public function test_sends_of_one_account_take_turns(): void
+    {
+        $big = $this->send(['@a1', '@a2', '@a3']);
+        $small = $this->send(['@b1', '@b2']);
+
+        $this->assertSame(SendWorker::DONE, $this->work());
+
+        $this->assertSame(['@a1', '@b1', '@a2', '@b2', '@a3'], $this->telegram->sentTo());
+        $this->assertSame(GroupStatus::Completed, $big->refresh()->status);
+        $this->assertSame(GroupStatus::Completed, $small->refresh()->status);
+    }
+
+    public function test_one_message_per_run_opens_a_fresh_session_for_every_message_and_keeps_the_turns(): void
+    {
+        config(['telegram.worker.messages_per_run' => 1]);
+        $this->send(['@a1', '@a2']);
+        $this->send(['@b1']);
+
+        $outcomes = [$this->work(), $this->work(), $this->work()];
+
+        $this->assertSame([SendWorker::MORE, SendWorker::MORE, SendWorker::DONE], $outcomes, 'the last run sees nothing is left');
+        $this->assertSame(['@a1', '@b1', '@a2'], $this->telegram->sentTo());
+        $this->assertCount(3, array_filter($this->telegram->calls, fn ($c) => $c[0] === 'open'));
+    }
+
     public function test_a_peer_error_fails_only_that_message(): void
     {
         $this->telegram->failPeer('@ghost', 'USERNAME_NOT_OCCUPIED');

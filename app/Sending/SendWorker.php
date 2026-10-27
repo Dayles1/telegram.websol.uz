@@ -35,6 +35,12 @@ use Throwable;
  * sent, so a row can't go out twice even if two workers ever raced. The process
  * holds the account's ProcessLock, so two workers never share a session.
  *
+ * A run takes at most worker.messages_per_run messages (1: every message in a fresh
+ * process and session, the process that opened one exits after the job).
+ *
+ * The sends (groups) of one account take turns, one message each, so a big send
+ * started first does not hold back the ones started after it.
+ *
  * Outcomes (read by the job):
  *   DONE           nothing left, or the account must wait (flood, daily limit)
  *   RETRY          failed, run again later with backoff
@@ -152,6 +158,12 @@ final class SendWorker
         return "telegram:send-unfinished:{$accountId}";
     }
 
+    /** The group this account's last message came from: the next one comes from the group after it. */
+    public static function lastGroupKey(int $accountId): string
+    {
+        return "telegram:send-last-group:{$accountId}";
+    }
+
     /** Runs in a row of this account that never returned. */
     public static function deadRunsKey(int $accountId): string
     {
@@ -234,6 +246,9 @@ final class SendWorker
             return self::RETRY;
         }
 
+        $perRun = (int) config('telegram.worker.messages_per_run');
+        $handled = 0;
+
         while (true) {
             if ($this->shouldYield()) {
                 return self::MORE;
@@ -266,6 +281,14 @@ final class SendWorker
                 max(0, $this->settings->int('send_delay_min')),
                 max($this->settings->int('send_delay_min'), $this->settings->int('send_delay_max')),
             );
+            if ($perRun > 0 && ++$handled >= $perRun) {
+                if ($this->dueTask($account->id) === null && $this->dueMessage($account->id, null) === null) {
+                    return self::DONE;
+                }
+                $this->resumeIn = $pause; // the next message in a fresh process and session
+
+                return self::MORE;
+            }
             if (time() + $pause >= $this->deadline) {
                 $this->resumeIn = $pause; // the queue waits instead of this process
 
@@ -287,25 +310,44 @@ final class SendWorker
             || Cache::get('illuminate:queue:restart') !== $this->restartSignal;
     }
 
+    /** The first due message of this account in a group after $afterGroupId (any group when null). */
+    private function dueMessage(int $accountId, ?int $afterGroupId): ?TelegramMessage
+    {
+        return TelegramMessage::query()
+            ->whereIn('message_group_id', MessageGroup::query()
+                ->select('id')
+                ->where('user_phone_id', $accountId)
+                ->whereIn('status', GroupStatus::activeValues()))
+            ->where('status', MessageStatus::Pending)
+            ->where('created_at', '>=', now()->subHours((int) config('telegram.worker.expire_pending_hours')))
+            ->where(fn ($q) => $q->whereNull('send_at')->orWhere('send_at', '<=', now()))
+            ->when($afterGroupId !== null, fn ($q) => $q->where('message_group_id', '>', $afterGroupId))
+            ->orderBy('message_group_id')
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function dueTask(int $accountId): ?MessageTask
+    {
+        return MessageTask::query()
+            ->where('sender_phone_id', $accountId)
+            ->where('status', TaskStatus::Pending)
+            ->where('created_at', '>=', now()->subHours((int) config('telegram.worker.expire_pending_hours')))
+            ->orderBy('id')
+            ->first();
+    }
+
     private function claimMessage(UserPhone $account): ?TelegramMessage
     {
-        $activeGroups = MessageGroup::query()
-            ->select('id')
-            ->where('user_phone_id', $account->id)
-            ->whereIn('status', GroupStatus::activeValues());
-
         for ($try = 0; $try < 5; $try++) {
-            $candidate = TelegramMessage::query()
-                ->whereIn('message_group_id', $activeGroups)
-                ->where('status', MessageStatus::Pending)
-                ->where('created_at', '>=', now()->subHours((int) config('telegram.worker.expire_pending_hours')))
-                ->where(fn ($q) => $q->whereNull('send_at')->orWhere('send_at', '<=', now()))
-                ->orderBy('id')
-                ->first();
+            $lastGroupId = Cache::get(self::lastGroupKey($account->id));
+            $candidate = $this->dueMessage($account->id, $lastGroupId)
+                ?? ($lastGroupId !== null ? $this->dueMessage($account->id, null) : null);
 
             if ($candidate === null) {
                 return null;
             }
+            Cache::put(self::lastGroupKey($account->id), (int) $candidate->message_group_id, now()->addDay());
 
             $claimed = TelegramMessage::query()
                 ->whereKey($candidate->id)
@@ -325,12 +367,7 @@ final class SendWorker
 
     private function claimTask(UserPhone $account): ?MessageTask
     {
-        $candidate = MessageTask::query()
-            ->where('sender_phone_id', $account->id)
-            ->where('status', TaskStatus::Pending)
-            ->where('created_at', '>=', now()->subHours((int) config('telegram.worker.expire_pending_hours')))
-            ->orderBy('id')
-            ->first();
+        $candidate = $this->dueTask($account->id);
 
         if ($candidate === null) {
             return null;

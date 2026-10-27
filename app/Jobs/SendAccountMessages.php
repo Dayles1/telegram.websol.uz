@@ -54,7 +54,7 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
     {
         $slot = WorkerSlots::take($this->timeout);
         if ($slot === null) {
-            $this->release(15);
+            $this->release(WorkerSlots::RETRY_SECONDS);
 
             return;
         }
@@ -71,7 +71,7 @@ final class SendAccountMessages implements ShouldBeUnique, ShouldQueue
         }
 
         match ($outcome) {
-            SendWorker::MORE => $this->release($worker->resumeIn()),
+            SendWorker::MORE => $this->release(WorkerSlots::wanted() ? max($worker->resumeIn(), WorkerSlots::YIELD_SECONDS) : $worker->resumeIn()),
             SendWorker::RETRY => $this->release($this->retryDelay()),
             SendWorker::BUSY => $this->release(30),
             default => Cache::forget(self::failuresKey($this->accountId)),
