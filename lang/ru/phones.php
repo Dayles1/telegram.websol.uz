@@ -25,6 +25,13 @@ return [
     'step_password' => 'Пароль',
     'requesting_code' => 'Запрашиваем код у Telegram…',
     'verifying' => 'Проверяем…',
+    'owner_label' => 'Владелец аккаунта',
+    'owner_hint' => 'Аккаунт появится у этого пользователя, код придёт в его Telegram.',
+    'owner_change' => 'Изменить',
+    'owner_search' => 'Имя или email сотрудника',
+    'code_from_owner' => 'Код пришёл в Telegram владельца. Пусть продиктует его вслух: код, пересланный сообщением в Telegram, Telegram аннулирует.',
+    'connect_another' => 'Подключить ещё',
+    'search' => 'Номер, имя, @username или владелец',
     'phone_label' => 'Номер телефона',
     'phone_hint' => 'В международном формате, например +998 90 123 45 67.',
     'get_code' => 'Получить код',
@@ -48,6 +55,8 @@ return [
 
     'js' => [
         'connected' => 'Аккаунт подключён',
+        'owner_me' => ':name (я)',
+        'owner_phones' => 'аккаунтов: :n',
         'failed' => 'Не удалось войти. Попробуйте снова.',
         'logout' => 'Выйти',
         'logout_title' => 'Выйти из аккаунта?',

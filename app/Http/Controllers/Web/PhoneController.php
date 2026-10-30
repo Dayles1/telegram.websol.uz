@@ -8,9 +8,11 @@ use App\Accounts\AccountLogin;
 use App\Accounts\AccountSessions;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PhoneResource;
+use App\Models\User;
 use App\Models\UserPhone;
 use App\Sending\DailyLimit;
 use App\Telegram\Phone;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,7 +20,8 @@ use Illuminate\View\View;
 
 /**
  * Telegram accounts: the list, the connect wizard (phone -> code -> password),
- * logout, session check, removal. Every action answers with the account's
+ * logout, session check, removal. An admin connects a phone for a user they
+ * oversee (an employee) without logging in as them. Every action answers with the account's
  * fresh state; the page polls data() while something is in flight.
  */
 final class PhoneController extends Controller
@@ -28,9 +31,19 @@ final class PhoneController extends Controller
         private readonly AccountSessions $sessions,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        return view('phones.index');
+        $user = $request->user();
+        // whom an admin can connect a phone for (the wizard's owner picker): themselves first
+        $owners = $user->seesOthers()
+            ? User::query()->tap(fn (Builder $q) => $user->limitToOverseen($q, 'id'))
+                ->withCount(['phones' => fn (Builder $q) => $q->connected()])
+                ->orderByRaw('id = ? desc', [$user->id])->orderBy('name')
+                ->get(['id', 'name', 'email'])
+                ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'initials' => $u->initials, 'phones' => $u->phones_count])
+            : collect();
+
+        return view('phones.index', ['owners' => $owners]);
     }
 
     public function data(Request $request, DailyLimit $limit): JsonResponse
@@ -60,9 +73,16 @@ final class PhoneController extends Controller
 
     public function store(Request $request): PhoneResource
     {
-        $request->validate(['phone' => ['required', 'string', 'regex:'.Phone::PATTERN]]);
+        $request->validate([
+            'phone' => ['required', 'string', 'regex:'.Phone::PATTERN],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+        $owner = $request->filled('user_id') ? User::query()->findOrFail($request->integer('user_id')) : $request->user();
+        Gate::authorize('create', [UserPhone::class, $owner]);
 
-        return new PhoneResource($this->login->start($request->user(), (string) $request->input('phone')));
+        $account = $this->login->start($owner, (string) $request->input('phone'), by: $request->user());
+
+        return new PhoneResource($account->load('user:id,name'));
     }
 
     public function code(Request $request, UserPhone $phone): PhoneResource

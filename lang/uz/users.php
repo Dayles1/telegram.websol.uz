@@ -8,6 +8,8 @@ return [
     'title' => 'Foydalanuvchilar',
     'description' => 'Panelda kim ishlaydi, ularning akkauntlari, kataloglari va 30 kunlik yetkazish.',
     'create' => 'Foydalanuvchi qo‘shish',
+    'create_and_connect' => 'Qo‘shish va raqam ulash',
+    'connect_phone' => 'Raqam ulash',
     'create_title' => 'Yangi foydalanuvchi',
     'create_text' => 'Foydalanuvchi siz bergan email va parol bilan kiradi.',
     'edit_title' => 'Foydalanuvchi: :name',

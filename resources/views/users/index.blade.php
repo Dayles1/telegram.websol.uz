@@ -23,7 +23,43 @@
         @if ($users->isEmpty())
             <x-ui.empty icon="users" :title="$search !== '' ? __('common.nothing_found') : __('users.empty')" />
         @else
-            <div class="overflow-x-auto">
+            {{-- Phone: one card per user --}}
+            <ul class="divide-y divide-[var(--line)] sm:hidden">
+                @foreach ($users as $u)
+                    @php
+                        $stats = $month->get($u->id) ?? ['groups' => 0, 'sent' => 0, 'failed' => 0];
+                        $role = $u->roleName();
+                    @endphp
+                    <li class="p-3">
+                        <div class="flex items-start gap-3">
+                            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">{{ $u->initials }}</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="truncate font-medium text-gray-900 dark:text-white">{{ $u->name }}</span>
+                                    @if ($u->id === auth()->id())<span class="c-muted shrink-0 text-xs">· {{ __('users.you') }}</span>@endif
+                                    <x-ui.badge :tone="$role->tone()" class="ml-auto shrink-0">{{ $role->label() }}</x-ui.badge>
+                                </div>
+                                <div class="c-muted truncate text-xs">{{ $u->email }}</div>
+                                <div class="c-muted mt-1 text-xs tabular-nums">
+                                    {{ __('users.col_phones') }}: <span class="font-semibold text-gray-900 dark:text-white">{{ $u->phones_count }}</span>
+                                    · {{ __('users.col_sent') }}: <span class="font-semibold text-gray-900 dark:text-white">{{ number_format($stats['sent'], 0, '.', ' ') }}</span>
+                                    @if ($stats['failed'])
+                                        · <span class="text-error-600 dark:text-error-400">{{ __('users.col_failed') }}: {{ number_format($stats['failed'], 0, '.', ' ') }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center gap-1">
+                            @can('create', [App\Models\UserPhone::class, $u])
+                                <x-ui.button :href="route('phones.index', ['owner' => $u->id]).'#connect'" size="sm" variant="secondary" icon="phone" class="flex-1">{{ __('users.connect_phone') }}</x-ui.button>
+                            @endcan
+                            @include('users.row-actions')
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+
+            <div class="hidden overflow-x-auto sm:block">
                 <table class="c-table min-w-[820px]">
                     <thead>
                         <tr>
@@ -34,7 +70,7 @@
                             <th class="w-24 text-right">{{ __('users.col_groups') }}</th>
                             <th class="w-28 text-right">{{ __('users.col_sent') }}</th>
                             <th class="w-28 text-right">{{ __('users.col_failed') }}</th>
-                            <th class="w-24"></th>
+                            <th class="w-48"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,18 +111,11 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <div class="flex justify-end gap-1">
-                                        @can('update', $u)
-                                            <x-ui.button :href="route('users.edit', $u)" size="icon-sm" variant="ghost" :title="__('common.edit')"><x-ui.icon name="edit" /></x-ui.button>
+                                    <div class="flex items-center justify-end gap-1">
+                                        @can('create', [App\Models\UserPhone::class, $u])
+                                            <x-ui.button :href="route('phones.index', ['owner' => $u->id]).'#connect'" size="sm" variant="secondary" icon="phone">{{ __('users.connect_phone') }}</x-ui.button>
                                         @endcan
-                                        @can('delete', $u)
-                                            <form method="POST" action="{{ route('users.destroy', $u) }}" x-data
-                                                  @submit.prevent="$store.confirm.ask({ title: @js(__('users.delete_title')), body: @js(__('users.delete_body', ['name' => $u->name])), action: @js(__('common.delete')) }).then((ok) => ok && $el.submit())">
-                                                @csrf
-                                                @method('DELETE')
-                                                <x-ui.button type="submit" size="icon-sm" variant="danger-ghost" :title="__('common.delete')"><x-ui.icon name="trash" /></x-ui.button>
-                                            </form>
-                                        @endcan
+                                        @include('users.row-actions')
                                     </div>
                                 </td>
                             </tr>

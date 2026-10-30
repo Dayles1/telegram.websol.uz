@@ -8,8 +8,10 @@ import { poll } from '../lib/poll';
  *   phone step -> requesting_code -> code step (code_sent / code_invalid)
  *   -> verifying -> password step (need_password / password_invalid) -> authorized
  * While a step is in flight the page polls every 1.5s; otherwise every 15s.
+ * An admin picks the owner on the phone step (`owners`): an employee's phone is
+ * connected for them, the code comes from the employee.
  */
-export default function phonesPage({ urls, t, canSeeAll }) {
+export default function phonesPage({ urls, t, canSeeAll, me, owners }) {
     return {
         phones: [],
         sentToday: {},
@@ -17,11 +19,17 @@ export default function phonesPage({ urls, t, canSeeAll }) {
         loading: true,
         showAll: false,
         canSeeAll,
+        search: '',
         busy: false,
+        t,
 
         // wizard
         wizard: false,
         step: 'phone', // phone | code | password | done
+        me,
+        ownerId: me,
+        pickingOwner: false,
+        ownerSearch: '',
         phoneInput: '',
         code: '',
         password: '',
@@ -33,7 +41,11 @@ export default function phonesPage({ urls, t, canSeeAll }) {
         init() {
             this.poller = poll(() => this.load(), () => (this.anyInFlight ? 1500 : 15000));
             this.clock = setInterval(() => (this.now = Date.now()), 1000);
-            if (window.location.hash === '#connect') this.openWizard();
+            // #connect opens the wizard; ?owner=ID (the users page) picks whose account it is
+            if (window.location.hash === '#connect') {
+                this.openWizard(null, Number(new URLSearchParams(window.location.search).get('owner')) || null);
+                history.replaceState(null, '', window.location.pathname);
+            }
         },
 
         destroy() {
@@ -45,12 +57,44 @@ export default function phonesPage({ urls, t, canSeeAll }) {
             return this.phones.some((p) => p.in_flight) || (this.wizard && this.account?.in_flight);
         },
 
+        /** By name, @username, owner, or the digits of the number ("90 123" finds +99890123...). */
+        get filtered() {
+            const q = this.search.trim().toLowerCase();
+            if (!q) return this.phones;
+            const digits = q.replace(/\D+/g, '');
+
+            return this.phones.filter(
+                (p) =>
+                    `${p.name} ${p.username ?? ''} ${p.owner?.name ?? ''}`.toLowerCase().includes(q) ||
+                    (digits.length >= 2 && p.phone.replace(/\D+/g, '').includes(digits)),
+            );
+        },
+
         get mine() {
-            return this.phones.filter((p) => p.is_mine);
+            return this.filtered.filter((p) => p.is_mine);
         },
 
         get others() {
-            return this.phones.filter((p) => !p.is_mine);
+            return this.filtered.filter((p) => !p.is_mine);
+        },
+
+        get owner() {
+            return owners.find((o) => o.id === this.ownerId) ?? null;
+        },
+
+        get ownerName() {
+            return this.owner?.name ?? this.account?.owner?.name ?? '';
+        },
+
+        get filteredOwners() {
+            const q = this.ownerSearch.trim().toLowerCase();
+
+            return q ? owners.filter((o) => `${o.name} ${o.email}`.toLowerCase().includes(q)) : owners;
+        },
+
+        ownerLabel(owner) {
+            if (!owner) return '';
+            return owner.id === me ? t.owner_me.replace(':name', owner.name) : owner.name;
         },
 
         get resendIn() {
@@ -76,16 +120,44 @@ export default function phonesPage({ urls, t, canSeeAll }) {
             this.poller.now();
         },
 
+        /** An admin searching for an employee's number: search everyone's accounts. */
+        searchAll() {
+            if (this.canSeeAll && !this.showAll && this.search.trim()) {
+                this.showAll = true;
+                this.poller.now();
+            }
+        },
+
         // ------------------------------------------------------------- wizard
 
-        openWizard(phone = null) {
+        /** An admin starts by choosing the owner, unless one is given (the users page). */
+        openWizard(phone = null, ownerId = null) {
+            const preset = owners.some((o) => o.id === ownerId);
             Object.assign(this, { wizard: true, step: 'phone', code: '', password: '', error: null, account: null, phoneInput: phone ?? '' });
+            Object.assign(this, { ownerId: preset ? ownerId : me, pickingOwner: false });
+            if (owners.length > 1 && !preset) this.pickOwner();
+            else this.$nextTick(() => this.$refs.phoneInput?.focus());
+        },
+
+        pickOwner() {
+            if (this.account) return;
+            this.pickingOwner = true;
+            this.ownerSearch = '';
+            // on a phone the list stays in view; the keyboard opens only when they tap the search
+            if (!window.matchMedia('(pointer: coarse)').matches) this.$nextTick(() => this.$refs.ownerSearch?.focus());
+        },
+
+        chooseOwner(owner) {
+            this.ownerId = owner.id;
+            this.pickingOwner = false;
             this.$nextTick(() => this.$refs.phoneInput?.focus());
         },
 
         resume(account) {
             this.wizard = true;
             this.account = account;
+            this.ownerId = account.owner?.id ?? me;
+            this.pickingOwner = false;
             this.phoneInput = account.phone;
             this.error = null;
             this.follow(account);
@@ -120,9 +192,11 @@ export default function phonesPage({ urls, t, canSeeAll }) {
 
         async submitPhone() {
             this.error = null;
-            const account = await this.send(() => http.post(urls.store, { phone: this.phoneInput }));
+            const account = await this.send(() => http.post(urls.store, { phone: this.phoneInput, user_id: this.ownerId }));
             if (account) {
                 this.account = account.data;
+                // someone else's account is listed only with "all": the wizard follows it through the list
+                if (this.ownerId !== me) this.showAll = true;
                 this.poller.now();
             }
         },

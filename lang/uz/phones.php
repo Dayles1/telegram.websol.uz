@@ -25,6 +25,13 @@ return [
     'step_password' => 'Parol',
     'requesting_code' => 'Telegramdan kod so‘ralmoqda…',
     'verifying' => 'Tekshirilmoqda…',
+    'owner_label' => 'Akkaunt egasi',
+    'owner_hint' => 'Akkaunt shu foydalanuvchiga biriktiriladi, kod uning Telegramiga keladi.',
+    'owner_change' => 'O‘zgartirish',
+    'owner_search' => 'Xodimning ismi yoki emaili',
+    'code_from_owner' => 'Kod akkaunt egasining Telegramiga keldi. Kodni og‘zaki aytsin: Telegramda xabar qilib yuborilgan kodni Telegram bekor qiladi.',
+    'connect_another' => 'Yana ulash',
+    'search' => 'Raqam, ism, @username yoki egasi',
     'phone_label' => 'Telefon raqami',
     'phone_hint' => 'Xalqaro formatda, masalan +998 90 123 45 67.',
     'get_code' => 'Kod olish',
@@ -48,6 +55,8 @@ return [
 
     'js' => [
         'connected' => 'Akkaunt ulandi',
+        'owner_me' => ':name (men)',
+        'owner_phones' => ':n ta akkaunt',
         'failed' => 'Kirib bo‘lmadi. Qaytadan urinib ko‘ring.',
         'logout' => 'Chiqish',
         'logout_title' => 'Akkauntdan chiqilsinmi?',

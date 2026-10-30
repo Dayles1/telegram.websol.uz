@@ -125,6 +125,48 @@ class RolesTest extends TestCase
         $this->actingAs($this->plain)->get(route('monitoring.api.logs'))->assertForbidden();
     }
 
+    public function test_an_admin_connects_a_phone_for_a_plain_user_but_not_for_another_admin(): void
+    {
+        $this->actingAs($this->admin)->get(route('phones.index'))->assertOk()
+            ->assertViewHas('owners', fn ($owners) => $owners->pluck('id')->all() === [$this->admin->id, $this->plain->id]);
+
+        // the users page links straight into the wizard, only for the users the admin may connect for
+        $connect = fn (User $u) => 'href="'.route('phones.index', ['owner' => $u->id]).'#connect"';
+        $this->get(route('users.index'))->assertOk()
+            ->assertSee($connect($this->plain), false)
+            ->assertDontSee($connect($this->otherAdmin), false);
+
+        $this->postJson(route('phones.store'), ['phone' => '+998901110000', 'user_id' => $this->plain->id])
+            ->assertCreated()
+            ->assertJsonPath('data.owner.id', $this->plain->id)
+            ->assertJsonPath('data.is_mine', false);
+        $account = UserPhone::query()->wherePhone('+998901110000')->sole();
+        $this->assertSame($this->plain->id, $account->user_id);
+        $this->assertStringContainsString("_user_{$this->plain->id}.madeline", $account->session_path);
+
+        $this->postJson(route('phones.store'), ['phone' => '+998901110001', 'user_id' => $this->otherAdmin->id])->assertForbidden();
+        $this->actingAs($this->plain)->postJson(route('phones.store'), ['phone' => '+998901110002', 'user_id' => $this->admin->id])->assertForbidden();
+        $this->actingAs($this->plain)->postJson(route('phones.store'), ['phone' => '+998901110003', 'user_id' => $this->plain->id])->assertCreated();
+        $this->actingAs($this->superadmin())->postJson(route('phones.store'), ['phone' => '+998901110004', 'user_id' => $this->otherAdmin->id])->assertCreated();
+
+        $this->assertFalse(UserPhone::query()->wherePhone('+998901110001')->exists());
+        $this->assertFalse(UserPhone::query()->wherePhone('+998901110002')->exists());
+        $this->assertSame($this->otherAdmin->id, UserPhone::query()->wherePhone('+998901110004')->value('user_id'));
+    }
+
+    public function test_create_and_connect_opens_the_wizard_for_the_new_user(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('users.store'), ['name' => 'Employee', 'email' => 'employee@example.com', 'password' => 'long-enough', 'role' => 'user', 'then' => 'phone'])
+            ->assertRedirect(route('phones.index', ['owner' => User::query()->where('email', 'employee@example.com')->value('id')]).'#connect');
+
+        // a new admin is not theirs to connect for: back to the list
+        $this->post(route('users.store'), ['name' => 'Boss', 'email' => 'boss@example.com', 'password' => 'long-enough', 'role' => 'admin', 'then' => 'phone'])
+            ->assertRedirect(route('users.index'));
+        $this->post(route('users.store'), ['name' => 'Plain', 'email' => 'plain@example.com', 'password' => 'long-enough', 'role' => 'user'])
+            ->assertRedirect(route('users.index'));
+    }
+
     public function test_an_admin_edits_plain_users_but_not_another_admin(): void
     {
         $this->actingAs($this->admin);

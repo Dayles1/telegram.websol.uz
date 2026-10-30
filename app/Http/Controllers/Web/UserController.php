@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserPhone;
 use App\Queries\DeliveryStats;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +47,12 @@ final class UserController extends Controller
     public function store(UserRequest $request): RedirectResponse
     {
         Gate::authorize('create', User::class);
-        User::query()->create($this->attributes($request));
+        $user = User::query()->create($this->attributes($request));
+
+        // "Create and connect a phone": straight into the connect wizard with the new user as the owner
+        if ($request->input('then') === 'phone' && Gate::allows('create', [UserPhone::class, $user])) {
+            return redirect()->to(route('phones.index', ['owner' => $user->id]).'#connect')->with('success', __('users.saved'));
+        }
 
         return redirect()->route('users.index')->with('success', __('users.saved'));
     }

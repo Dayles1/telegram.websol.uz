@@ -38,7 +38,8 @@ final class AccountLogin
         private readonly EventRecorder $events,
     ) {}
 
-    public function start(User $user, string $phoneInput): UserPhone
+    /** $user owns the account; $by is the admin who connects it for them (null: the owner themselves). */
+    public function start(User $user, string $phoneInput, ?User $by = null): UserPhone
     {
         $phone = Phone::normalize($phoneInput);
         if (strlen($phone) < 10) {
@@ -75,7 +76,8 @@ final class AccountLogin
         });
 
         RequestLoginCode::dispatch($account->id)->afterCommit();
-        $this->events->info(EventKind::Login, 'Login started', ['phone' => Phone::mask($phone)], $account->id, userId: $user->id);
+        $context = ['phone' => Phone::mask($phone)] + ($by !== null && $by->id !== $user->id ? ['by_user_id' => $by->id] : []);
+        $this->events->info(EventKind::Login, 'Login started', $context, $account->id, userId: $user->id);
 
         return $account;
     }

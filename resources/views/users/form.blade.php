@@ -41,9 +41,15 @@
             </div>
         </x-ui.surface>
 
-        <div class="mt-4 flex justify-end gap-2">
+        <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <x-ui.button :href="route('users.index')" variant="ghost">{{ __('common.cancel') }}</x-ui.button>
-            <x-ui.button type="submit" variant="primary" icon="check">{{ $editing ? __('common.save') : __('users.create') }}</x-ui.button>
+            @if ($editing)
+                <x-ui.button type="submit" variant="primary" icon="check">{{ __('common.save') }}</x-ui.button>
+            @else
+                <x-ui.button type="submit" variant="secondary" icon="check">{{ __('users.create') }}</x-ui.button>
+                {{-- an employee usually gets their phone right away --}}
+                <x-ui.button type="submit" name="then" value="phone" variant="primary" icon="phone">{{ __('users.create_and_connect') }}</x-ui.button>
+            @endif
         </div>
     </form>
 </x-layouts.app>
